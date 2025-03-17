@@ -1,0 +1,22 @@
+FROM ubuntu:20.04
+
+# Set non-interactive installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies including Python
+RUN apt-get update && apt-get install -y \
+    curl \
+    perl \
+    libwww-perl \
+    libnet-perl \
+    libjson-perl \
+    wget \
+    python3 \
+    python3-pip
+
+# Install NCBI E-utilities
+RUN sh -c "$(curl -fsSL https://ftp.ncbi.nlm.nih.gov/entrez/entrezdirect/install-edirect.sh)" || true
+ENV PATH="$PATH:/root/edirect"
+
+WORKDIR /data
+CMD ["/bin/bash"]

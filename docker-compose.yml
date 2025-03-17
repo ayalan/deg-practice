@@ -1,4 +1,3 @@
-version: '3'
 services:
   analysis:
     image: scrnaseq-analysis:1.0

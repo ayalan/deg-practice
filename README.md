@@ -159,6 +159,15 @@ docker-compose run --rm analysis R
 docker-compose run --rm analysis bash
 ```
 
+To exit or stop your Docker container when using docker-compose, you have a few options:
+
+If you're in an interactive R session:
+1. Type `q()` and press Enter
+2. When prompted "Save workspace image?", type `n` (or your preference) and press Enter
+
+If you're in an interactive bash shell:
+1. Type exit and press Enter, or Press Ctrl+D
+
 ### Downloading and Using GEO Metadata
 
 The SOFT and MINiML files from GEO provide crucial metadata about your samples. Let's download these and use them to understand the experimental design:
@@ -179,7 +188,9 @@ gunzip GSE183590_family.xml.gz
 grep -A 20 "!Sample_title" GSE183590_family.soft | head -n 40
 ```
 
-This helps in identifying which SRA accession (and thus FASTQ file) corresponds to which cell line and experimental condition, crucial for downstream analysis.
+If you're using zsh, use single quotes instead of double in the grep command.
+
+This file helps in identifying which SRA accession (and thus FASTQ file) corresponds to which cell line and experimental condition, crucial for downstream analysis.
 
 ### Download and Organize Your FASTQ Files
 
@@ -198,66 +209,50 @@ gzip *.fastq
 
 ### Extracting Cell Line Information from GEO Metadata
 
-To integrate cell line information with your expression data, you need to create a mapping between SRA run accessions and their corresponding cell lines using the GEO metadata:
+To integrate cell line information with your expression data, you need to create a mapping between SRA run accessions and their corresponding cell lines using the GEO metadata.
+
+Extract sample information from the SOFT file: 
 
 ```bash
-# Extract sample information from the SOFT file
+# Make sure you're in the metadata folder
 cd metadata
-grep -A 5 "!Sample_title" GSE183590_family.soft > sample_info.txt
-grep "!Sample_geo_accession" GSE183590_family.soft >> sample_info.txt
-grep "!Sample_relation" GSE183590_family.soft >> sample_info.txt
 
-# Create a mapping file between SRA accessions and cell lines
-awk 'BEGIN {OFS="\t"} 
-     /!Sample_title/ {gsub("!Sample_title = ", ""); title=$0} 
-     /!Sample_geo_accession/ {gsub("!Sample_geo_accession = ", ""); gsm=$0} 
-     /!Sample_relation/ {gsub("!Sample_relation = SRA: ", ""); print gsm, title, $0}' sample_info.txt > cell_line_mapping.txt
+# Run script to extract metadata
+./extract_meta.sh
 ```
+
+Create a mapping file between SRA accessions and cell lines, using the process_samples.awk script:
+
+```bash
+awk -f process_samples.awk sample_info.txt > cell_line_mapping.txt
+```
+
 This script:
 - Sets the output field separator to a tab `(OFS="\t")`
 - Looks for lines containing `!Sample_title` and saves the content to a variable
 - Looks for lines containing `!Sample_geo_accession` and saves the content
 - Looks for lines with `!Sample_relation` and then prints the collected data
 
-View the mapping file. This mapping file connects each GSM accession to its corresponding cell line and SRA run. 
-```
-cat cell_line_mapping.txt
-```
+View the mapping file. This mapping file connects each GSM accession to its corresponding cell line and SRX. However, we're still missing the SRR, since the metadata files did not include them. We will need to query and map each SRX to SRR using the NCBI e-utils tool.
 
-Now create a metadata file that you can use to annotate your Seurat object:
+We'll do this with a one-time use Docker container. See Dockerfile.eutils in this repo.
 
 ```bash
-# Create a metadata file for Seurat integration
-cd ..
-awk 'BEGIN {print "sample_id\tcell_line"} 
-     {split($3, sra, ";"); 
-      for (i in sra) {
-        gsub(" ", "", sra[i]); 
-        if (sra[i] != "") print sra[i], $2
-      }
-     }' metadata/cell_line_mapping.txt > data/cell_line_metadata.txt
+docker build -t ncbi-eutils-py -f Dockerfile.eutils .
 ```
-
-This script:
-- Creates a header line with column names
-- Takes the SRA accession numbers from column 3 (which might contain multiple accessions separated by semicolons)
-- Splits them into individual accession numbers
-- For each accession number, pairs it with the cell line name from column 2
-- Saves these pairs to a new file that can be used by Seurat
-
-The result is a clean, tabular metadata file that maps each SRA accession number to its corresponding cell line, which will be used in the analysis to annotate cells.Later, after creating your Seurat object, you'll integrate this cell line information.
-
-### Understanding Cell Lines and Experimental Design
-
-The dataset GSE183590 contains scRNA-seq data from 4 cell lines. To understand the experimental setup, examine the metadata and the matrix file:
 
 ```bash
-# Run a container to examine the matrix.txt file (located in your data directory)
-docker run -it --rm -v $(pwd)/data:/data scrnaseq-analysis:1.0 bash
-head -n 20 /data/matrix.txt
+docker run -it --rm \
+  -v $(pwd)/metadata:/data \
+  ncbi-eutils-py \
+  python3 /data/map_srx_srr.py
 ```
 
-This file typically contains information about cell barcodes, gene IDs, and counts.
+The result is a clean, tabular metadata file that maps each SRA accession number to its corresponding cell line, which will be used in the analysis to annotate cells. 
+
+To summarize: we started with the SOFT file, used extract_meta.sh to generate a `sample_info.txt` file. Then we used process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used elsewhere downstream.
+
+Later, after creating your Seurat object, you'll integrate this cell line information.
 
 ## 3. Raw Data Processing
 

@@ -14,8 +14,8 @@
 *.gff
 *.gtf
 *.h5
-reference/
-metadata/
+reference/*
+metadata/*
 
 # Intermediate analysis files
 *.sorted.bam
@@ -97,6 +97,11 @@ htmlcov/
 
 # Exception for important configuration files
 !config/*.yaml
+
+# Exception for metadata extraction scripts
+!metadata/*.sh
+!metadata/*.awk
+!metadata/*.py
 
 # Track workflow script
 !run_snv_analysis.sh
