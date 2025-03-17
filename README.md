@@ -93,7 +93,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install R packages with specific versions for reproducibility
 RUN R -e "options(repos = c(CRAN = 'https://cran.r-project.org')); \
-    BiocManager::install(version = '3.15', ask = FALSE); \
+    BiocManager::install(ask = FALSE); \
     BiocManager::install(c( \
       'Seurat', \
       'SingleCellExperiment', \
@@ -121,6 +121,9 @@ CMD ["R"]
 Build the Docker image
 ```
 docker build -t scrnaseq-analysis:1.0 .
+
+# or if using MacOS with mX chips:
+docker build --platform linux/arm64 -t scrnaseq-analysis:1.0 .
 ```
 
 Verify the image was built successfully
@@ -154,24 +157,6 @@ docker-compose run --rm analysis R
 
 # Or for an interactive bash shell
 docker-compose run --rm analysis bash
-```
-
-If you prefer direct docker commands:
-
-```bash
-# Run an interactive R session
-docker run -it --rm \
-  -v $(pwd)/data:/data \
-  -v $(pwd)/results:/results \
-  -v $(pwd)/reference:/reference \
-  scrnaseq-analysis:1.0 R
-
-# Or for an interactive bash shell
-docker run -it --rm \
-  -v $(pwd)/data:/data \
-  -v $(pwd)/results:/results \
-  -v $(pwd)/reference:/reference \
-  scrnaseq-analysis:1.0 bash
 ```
 
 ### Downloading and Using GEO Metadata
@@ -519,65 +504,102 @@ ggsave(filename = "/project/tsne_by_cellline.pdf", plot = p2, width = 10, height
 
 ## 5. Cell Clustering and Annotation
 
-### Clustering and Visualization
+### Hierarchical Clustering with SC3
 
-Cluster the cells and visualize them using both UMAP and t-SNE:
+Let's perform unsupervised single-cell consensus clustering using SC3, which implements complete-linkage hierarchical clustering:
+
+```bash
+# Run R in the Docker container
+docker-compose run --rm analysis R
+```
+
+Within R: 
+```R
+# Load libraries for SC3 analysis
+library(Seurat)
+library(SingleCellExperiment)
+library(SC3)
+library(ggplot2)
+library(pheatmap)
+
+# Load the Seurat object if not already in memory
+# seurat_obj <- readRDS("/project/seurat_analysis.rds")
+
+# Convert Seurat object to SingleCellExperiment
+# We need the normalized data
+sce <- as.SingleCellExperiment(seurat_obj)
+
+# Prepare the dataset for SC3
+rowData(sce)$feature_symbol <- rownames(sce)
+sce <- sce[!duplicated(rowData(sce)$feature_symbol), ]
+rownames(sce) <- uniquifyFeatureNames(rowData(sce)$feature_symbol, rowData(sce)$feature_symbol)
+
+# Calculate gene filter (use top highly variable genes for efficiency)
+sce <- sc3_prepare(sce, gene_filter = TRUE, n_genes = 2000)
+
+# Run SC3 clustering for k=4 clusters (based on 4 cell lines)
+# For a more exploratory approach, use k_estimation=TRUE instead of specifying k=4
+sce <- sc3(sce, ks = 4, biology = TRUE, n_cores = 4)
+
+# Visualize SC3 consensus clustering
+sc3_plot_consensus(sce, k = 4, show_pdata = "cell_line")
+
+# Generate clustering heatmap with cell line annotations
+sc3_plot_expression(sce, k = 4, 
+                   show_pdata = c("sc3_4_clusters", "cell_line"))
+
+# Plot silhouette values to assess clustering quality
+sc3_plot_silhouette(sce, k = 4)
+
+# Get marker genes from SC3
+sc3_markers <- rowData(sce)[rowData(sce)$sc3_4_markers, ]
+
+# Save the SC3 marker genes
+write.csv(sc3_markers, "/project/sc3_marker_genes.csv", row.names = FALSE)
+```
+
+
+### Visualizing SC3 Clustering Results
+
+After performing SC3 hierarchical clustering, let's visualize the results in relation to the cell lines:
 
 ```R
-# Determine the number of PCs to use based on ElbowPlot
-seurat_obj <- FindNeighbors(seurat_obj, dims = 1:15)
-seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
+# Add SC3 cluster assignments to the Seurat object (for visualization only)
+seurat_obj$sc3_clusters <- colData(sce)$sc3_4_clusters
 
-# Run UMAP
-seurat_obj <- RunUMAP(seurat_obj, dims = 1:15)
+# Visualize cells in tSNE space, colored by SC3 clusters
+p_sc3_tsne <- DimPlot(seurat_obj, reduction = "tsne", 
+                    group.by = "sc3_clusters", pt.size = 1) + 
+  ggtitle("tSNE Colored by SC3 Clusters")
 
-# Visualize clusters using UMAP
-p_umap <- DimPlot(seurat_obj, reduction = "umap", label = TRUE) + 
-  ggtitle("UMAP Visualization of Clusters")
-print(p_umap)
+# Compare visualization of SC3 clusters vs cell lines
+p_sc3_vs_cellline <- plot_grid(
+  DimPlot(seurat_obj, reduction = "tsne", group.by = "sc3_clusters", pt.size = 1) + 
+    ggtitle("SC3 Clusters"),
+  DimPlot(seurat_obj, reduction = "tsne", group.by = "cell_line", pt.size = 1) + 
+    ggtitle("Cell Lines"),
+  ncol = 2
+)
 
-# Save the UMAP plot
-ggsave(filename = "/project/umap_visualization.pdf", plot = p_umap, width = 10, height = 8)
+# Save plots
+ggsave("/project/sc3_tsne.pdf", plot = p_sc3_tsne, width = 10, height = 8)
+ggsave("/project/sc3_vs_cellline.pdf", plot = p_sc3_vs_cellline, width = 16, height = 8)
 
-# Visualize t-SNE results (already generated in the previous step)
-p_tsne <- DimPlot(seurat_obj, reduction = "tsne", label = TRUE) + 
-  ggtitle("t-SNE Visualization of Clusters")
-print(p_tsne)
+# Calculate agreement metrics between SC3 clusters and cell lines
+sc3_vs_cellline <- table(SC3 = seurat_obj$sc3_clusters, 
+                       CellLine = seurat_obj$cell_line)
+print(sc3_vs_cellline)
 
-# Create a side-by-side comparison of both visualizations
-combined_plot <- p_umap + p_tsne + plot_layout(ncol = 2)
-print(combined_plot)
-ggsave(filename = "/project/umap_tsne_comparison.pdf", plot = combined_plot, width = 16, height = 8)
-
-# Try different resolutions to find optimal clustering
-seurat_obj <- FindClusters(seurat_obj, resolution = 0.3)
-
-# Show both visualizations with the new resolution
-p_umap_03 <- DimPlot(seurat_obj, reduction = "umap", label = TRUE) + 
-  ggtitle("UMAP (Resolution 0.3)")
-p_tsne_03 <- DimPlot(seurat_obj, reduction = "tsne", label = TRUE) + 
-  ggtitle("t-SNE (Resolution 0.3)")
-combined_03 <- p_umap_03 + p_tsne_03 + plot_layout(ncol = 2)
-print(combined_03)
-
-seurat_obj <- FindClusters(seurat_obj, resolution = 0.7)
-
-# Show both visualizations with the new resolution
-p_umap_07 <- DimPlot(seurat_obj, reduction = "umap", label = TRUE) + 
-  ggtitle("UMAP (Resolution 0.7)")
-p_tsne_07 <- DimPlot(seurat_obj, reduction = "tsne", label = TRUE) + 
-  ggtitle("t-SNE (Resolution 0.7)")
-combined_07 <- p_umap_07 + p_tsne_07 + plot_layout(ncol = 2)
-print(combined_07)
-
-# Add a note to load patchwork if not already installed
-# This can be run beforehand if needed: install.packages("patchwork")
-library(patchwork)
+# Install if needed: install.packages("mclust")
+library(mclust)
+# Calculate Adjusted Rand Index (measure of cluster agreement)
+ari_sc3_cellline <- adjustedRandIndex(seurat_obj$sc3_clusters, seurat_obj$cell_line)
+cat("Adjusted Rand Index (SC3 vs Cell Lines):", ari_sc3_cellline, "\n")
 ```
 
 ### Cell Line Annotation Using Metadata
 
-To identify what cell types your clusters represent, examine marker genes using R:
+To identify what cell types the SC3 clusters represent, we'll use limma for differential expression analysis:
 
 ```R
 # Identify marker genes using limma
@@ -590,9 +612,9 @@ dge <- DGEList(counts = counts)
 # Normalize data
 dge <- calcNormFactors(dge)
 
-# Design matrix for differential expression
-design <- model.matrix(~0 + seurat_obj$seurat_clusters)
-colnames(design) <- levels(seurat_obj$seurat_clusters)
+# Design matrix for differential expression based on SC3 clusters
+design <- model.matrix(~0 + seurat_obj$sc3_clusters)
+colnames(design) <- levels(factor(seurat_obj$sc3_clusters))
 
 # Voom transformation
 v <- voom(dge, design, plot = TRUE)
@@ -601,37 +623,42 @@ v <- voom(dge, design, plot = TRUE)
 fit <- lmFit(v, design)
 
 # Contrast matrix for comparisons
-contrast.matrix <- makeContrasts(Cluster1vsCluster2 = Cluster1 - Cluster2, levels = design)
+# For example, comparing cluster 1 vs 2
+contrast.matrix <- makeContrasts(Cluster1vsCluster2 = `1` - `2`, levels = design)
 
 # Fit contrasts
 fit2 <- contrasts.fit(fit, contrast.matrix)
 fit2 <- eBayes(fit2)
 
 # Extract DEGs
-degs <- topTable(fit2, adjust = "BH", number = Inf)
+limma_degs <- topTable(fit2, adjust = "BH", number = Inf)
 
 # View top DEGs
-head(degs, n = 20)
+head(limma_degs, n = 20)
 
 # Save DEGs to a file
-write.csv(degs, "/project/all_degs.csv")
+write.csv(limma_degs, "/project/sc3_limma_degs.csv")
 
-# Find marker genes for each cluster using Seurat's implementation
-# This is different from the limma-based approach above and provides markers specific to each cluster
-top_markers <- FindAllMarkers(seurat_obj, 
-                             only.pos = TRUE, 
-                             min.pct = 0.25, 
-                             logfc.threshold = 0.25)
+# Find marker genes for each SC3 cluster using Seurat's implementation
+# Set SC3 clusters as the active identity
+Idents(seurat_obj) <- "sc3_clusters"
 
-top_markers %>%
+# Find markers for each SC3 cluster
+sc3_cluster_markers <- FindAllMarkers(seurat_obj, 
+                                     only.pos = TRUE, 
+                                     min.pct = 0.25, 
+                                     logfc.threshold = 0.25)
+
+# Get top 10 markers per SC3 cluster
+sc3_cluster_markers %>%
   group_by(cluster) %>%
-  slice_max(n = 10, order_by = avg_log2FC) -> top_markers
+  slice_max(n = 10, order_by = avg_log2FC) -> top_sc3_markers
 
-# View the top markers
-print(head(top_markers, n = 20))
+# View top markers
+print(head(top_sc3_markers, n = 20))
 
-# Save top markers to a file (this means we don't need the write.csv in Section 7)
-write.csv(top_markers, "/project/top_markers.csv", row.names = FALSE)
+# Save markers
+write.csv(top_sc3_markers, "/project/top_sc3_markers.csv", row.names = FALSE)
 ```
 
 Use GEO metadata from the MINiML or SOFT file to further annotate clusters with their corresponding cell lines.

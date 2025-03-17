@@ -1,0 +1,11 @@
+version: '3'
+services:
+  analysis:
+    image: scrnaseq-analysis:1.0
+    volumes:
+      - ./data:/data
+      - ./results:/results
+      - ./reference:/reference
+    working_dir: /data
+    # Uncomment the next line if you want to use the container interactively
+    # command: /bin/bash

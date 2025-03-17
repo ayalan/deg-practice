@@ -1,5 +1,5 @@
 # Use a specific version of Bioconductor for reproducibility
-FROM bioconductor/bioconductor_docker:latest
+FROM bioconductor/bioconductor_docker:RELEASE_3_20
 
 # Set maintainer information
 LABEL maintainer="Aya Walraven <ayalan@gmail.com>"
@@ -23,9 +23,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install R packages with specific versions for reproducibility
+# Install R packages with compatible version
 RUN R -e "options(repos = c(CRAN = 'https://cran.r-project.org')); \
-    BiocManager::install(version = '3.15', ask = FALSE); \
+    BiocManager::install(ask = FALSE); \
     BiocManager::install(c( \
       'Seurat', \
       'SingleCellExperiment', \
