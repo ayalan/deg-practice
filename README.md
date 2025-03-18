@@ -43,10 +43,10 @@ Before we begin, let's establish a clear directory structure for your project. T
 │   ├── GSE183590_family.soft.gz   # SOFT format metadata
 │   └── GSE183590_family.xml.gz    # MINiML format metadata
 ├── reference/                     # Reference genome files
-│   ├── hg38.fa.gz                 # Reference genome in gzipped FASTA format
+│   ├── hg38.fna.gz                 # Reference genome in gzipped FASTA format
 │   ├── annotation.gtf             # Annotation file for featureCount
 │   └── (other reference files as needed)
-├── fastqc_results/                # Quality control results
+├── fastqc_results/                # Quality control results (optional)
 │   ├── SRR15740035_fastqc.html
 │   ├── SRR15740035_fastqc.zip
 │   └── ...
@@ -63,62 +63,9 @@ This structure separates your data by function and keeps processed results separ
 
 Instead of installing various tools, let's create a reproducible Docker environment with all the necessary software for scRNA-seq analysis:
 
-Make a Dockerfile with `touch Dockerfile` and insert the following:
+Check that you have the Dockerfiles, `Dockerfile` and `Dockerfile.eutils`.
 
-```bash
-# Use the latest version of Bioconductor
-FROM bioconductor/bioconductor_docker:latest
-
-# Set maintainer information
-LABEL maintainer="Your Name <your.email@example.com>"
-LABEL description="A practice environment for scRNA-seq analysis"
-
-# Set environment variables
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install system dependencies in a single layer to reduce image size
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    samtools \
-    hisat2 \
-    subread \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libxml2-dev \
-    libhdf5-dev \
-    libfftw3-dev \
-    libgsl-dev \
-    parallel \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install R packages with specific versions for reproducibility
-RUN R -e "options(repos = c(CRAN = 'https://cran.r-project.org')); \
-    BiocManager::install(ask = FALSE); \
-    BiocManager::install(c( \
-      'Seurat', \
-      'SingleCellExperiment', \
-      'scater', \
-      'scran', \
-      'SC3', \
-      'MAST', \
-      'clusterProfiler', \
-      'limma', \
-      'edgeR', \
-      'org.Hs.eg.db', \
-      'patchwork' \
-    ), ask = FALSE)"
-
-# Create directories for data and results
-RUN mkdir -p /data /results /reference
-
-# Set working directory
-WORKDIR /data
-
-# Command to run when the container starts
-CMD ["R"]
-```
-
-Build the Docker image
+Build the primary Docker image:
 ```
 docker build -t scrnaseq-analysis:1.0 .
 
@@ -131,24 +78,7 @@ Verify the image was built successfully
 docker images | grep scrnaseq-analysis
 ```
 
-Now, let's create a docker-compose.yml file to make running the analysis environment easier:
-
-```bash
-cat > docker-compose.yml << EOF
-version: '3'
-services:
-  analysis:
-    image: scrnaseq-analysis:1.0
-    volumes:
-      - ./data:/data
-      - ./results:/results
-      - ./reference:/reference
-    working_dir: /data
-    # Uncomment the next line if you want to use the container interactively
-    # command: /bin/bash
-EOF
-```
-
+Take a look at the docker-compose.yml file understand the analysis environment a little better.
 To run your analysis environment using docker-compose:
 
 ```bash
@@ -195,8 +125,12 @@ This file helps in identifying which SRA accession (and thus FASTQ file) corresp
 ### Download and Organize Your FASTQ Files
 
 ```bash
+# Use SRA Toolkit to download files from GEO
+brew install sra-toolkit
+
 # Download all runs associated with the project
-prefetch --option-file SRXXXXXX
+cd data
+prefetch SRP336022
 
 # Convert all downloaded SRA files to FASTQ
 for sra_file in $(find . -name "*.sra"); do
@@ -250,100 +184,11 @@ docker run -it --rm \
 
 The result is a clean, tabular metadata file that maps each SRA accession number to its corresponding cell line, which will be used in the analysis to annotate cells. 
 
-To summarize: we started with the SOFT file, used extract_meta.sh to generate a `sample_info.txt` file. Then we used process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used elsewhere downstream.
+To summarize: we started with the SOFT file, used extract_meta.sh to generate a `sample_info.txt` file. Then we used `process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used elsewhere downstream.
 
 Later, after creating your Seurat object, you'll integrate this cell line information.
 
-## 3. Raw Data Processing
-
-### Understanding FASTQ Files
-
-FASTQ files contain sequence reads from high-throughput sequencing experiments, along with quality scores for each base. Each read in a FASTQ file is represented by 4 lines:
-
-1. A header line starting with '@' that contains the sequence identifier
-2. The actual nucleotide sequence
-3. A line starting with '+' (sometimes with additional information)
-4. Quality scores encoded in ASCII characters
-
-Let's first examine one of your FASTQ files to understand its structure:
-
-```bash
-# Navigate to your project directory
-cd /path/to/deg-practice
-
-# Look at the first few lines of a FASTQ file
-zcat data/SRR15740035.fastq.gz | head -n 12
-```
-
-### Quality Control with FastQC
-
-Before proceeding with analysis, it's essential to check the quality of your sequencing data:
-
-```bash
-# Create a directory for FastQC results
-mkdir -p fastqc_results
-
-# Run FastQC on all FASTQ files
-fastqc data/*.fastq.gz -o fastqc_results
-
-# Optionally, generate a summary report with MultiQC
-# Install MultiQC if not already installed
-# pip install multiqc
-multiqc fastqc_results -o fastqc_results
-```
-
-This will generate HTML reports for each FASTQ file and a summary report if you use MultiQC. Look for:
-- Per base sequence quality
-- Overrepresented sequences
-- GC content
-- Sequence duplication levels
-
-### Quality Trimming with BBDuk
-
-Based on the quality assessment, we'll perform adapter removal and quality trimming using BBDuk. This step improves downstream analysis by removing low-quality bases and adapter sequences.
-
-```bash
-# Create a directory for trimmed reads
-mkdir -p data/trimmed
-
-# Download BBMap (which includes BBDuk)
-wget https://sourceforge.net/projects/bbmap/files/BBMap_38.90.tar.gz
-tar -xvzf BBMap_38.90.tar.gz
-
-# Create a Docker container with BBDuk
-docker run -it --rm \
-  -v $(pwd)/data:/input \
-  -v $(pwd)/data/trimmed:/output \
-  -v $(pwd)/bbmap:/bbmap \
-  ubuntu:20.04 bash
-
-# Inside the container, run BBDuk on each file
-for file in /input/*.fastq.gz; do
-  basename=$(basename "$file" .fastq.gz)
-  /bbmap/bbduk.sh \
-    in=$file \
-    out=/output/${basename}_trimmed.fastq.gz \
-    ref=/bbmap/resources/adapters.fa \
-    ktrim=r k=23 mink=11 hdist=1 \
-    qtrim=r trimq=30 minlen=30 \
-    threads=4
-done
-```
-
-This command does the following:
-- `ktrim=r`: Trims adapters from the right side (3' end)
-- `k=23 mink=11 hdist=1`: Parameters for adapter matching
-- `qtrim=r trimq=30`: Trims low-quality bases (Phred score Q<30) from the right side, equivalent to the 10^-3 error rate mentioned in the paper
-- `minlen=30`: Discards reads shorter than 30 bases after trimming, matching the paper's specification
-- `threads=4`: Uses 4 threads for processing
-
-After trimming, you can run FastQC again on the trimmed reads to verify quality improvement:
-
-```bash
-fastqc data/trimmed/*_trimmed.fastq.gz -o fastqc_results/post_trimming
-```
-
-In subsequent steps, we'll use these trimmed FASTQ files instead of the original ones.
+## 3. Trimmed Data Processing
 
 ### Processing scRNA-seq Data with HISAT2 and featureCount
 
@@ -353,23 +198,25 @@ For data derived from the Fluidigm C1 platform, we will use HISAT2 for alignment
 # Create necessary directories if they don't exist
 mkdir -p data/aligned
 mkdir -p reference
-mkdir -p fastqc_results
-mkdir -p metadata
+
+# Download the GRCh38.p13 reference genome into the reference folder
+cd reference
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.28_GRCh38.p13/GCA_000001405.28_GRCh38.p13_genomic.fna.gz
 
 # Prepare the reference genome
-gunzip -c reference/hg38.fa.gz > reference/hg38.fa
+gunzip -c GCA_000001405.28_GRCh38.p13_genomic.fna.gz > GRCh38.p13.fa
 
-# Download GTF annotation file for human genome (hg38/GRCh38) from Ensembl
-wget ftp://ftp.ensembl.org/pub/release-104/gtf/homo_sapiens/Homo_sapiens.GRCh38.104.gtf.gz
-gunzip Homo_sapiens.GRCh38.104.gtf.gz
-mv Homo_sapiens.GRCh38.104.gtf reference/annotation.gtf
+# Download the GRCh38.p13 gene annotations
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.28_GRCh38.p13/GCA_000001405.28_GRCh38.p13_genomic.gtf.gz
+gunzip GCA_000001405.28_GRCh38.p13_genomic.gtf.gz
+mv GCA_000001405.28_GRCh38.p13_genomic.gtf annotation.gtf
 
 # Create a HISAT2 index
-hisat2-build reference/hg38.fa reference/hisat2_index
+hisat2-build reference/GRCh38.p13.fa reference/hisat2_index
 
 # Align each trimmed FASTQ file using HISAT2
-for file in data/trimmed/*_trimmed.fastq.gz; do
-  base=$(basename "$file" _trimmed.fastq.gz)
+for file in data/*.fastq.gz; do
+  base=$(basename "$file" .fastq.gz)
   hisat2 -p 4 -x reference/hisat2_index -U $file -S data/aligned/${base}.sam
 done
 
