@@ -38,12 +38,12 @@ Before we begin, let's establish a clear directory structure for your project. T
 │   ├── SRR15740035.fastq.gz
 │   ├── SRR15740036.fastq.gz
 │   ├── ...
-│   └── matrix.txt                 # Metadata file from the study
+│   └── counts.txt                 # Counts matrix
 ├── metadata/                      # GEO metadata files
 │   ├── GSE183590_family.soft.gz   # SOFT format metadata
 │   └── GSE183590_family.xml.gz    # MINiML format metadata
 ├── reference/                     # Reference genome files
-│   ├── hg38.fna.gz                 # Reference genome in gzipped FASTA format
+│   ├── GRCh38.p13.fa                 # Reference genome in gzipped FASTA format
 │   ├── annotation.gtf             # Annotation file for featureCount
 │   └── (other reference files as needed)
 ├── fastqc_results/                # Quality control results (optional)

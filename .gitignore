@@ -15,7 +15,6 @@
 *.gtf
 *.h5
 reference/*
-metadata/*
 
 # Intermediate analysis files
 *.sorted.bam
