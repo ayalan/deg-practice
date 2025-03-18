@@ -31,9 +31,9 @@ alignment_stats.txt
 variant_stats.txt
 
 # Result directories that might contain large files
-results/
-output/
-data/
+results/*
+output/*
+data/*
 
 # Docker specific
 .docker/
