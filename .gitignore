@@ -1,0 +1,106 @@
+# Large genomic data files
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.fasta
+*.fa
+*.fa.gz
+*.bam
+*.sam
+*.vcf
+*.vcf.gz
+*.bed
+*.gff
+*.gtf
+*.h5
+reference/*
+
+# Intermediate analysis files
+*.sorted.bam
+*.sorted.bam.bai
+*.idx
+*.index
+*.dict
+aligned.*
+variants.*
+filtered_*
+annotated_*
+*_stats.txt
+alignment_stats.txt
+variant_stats.txt
+
+# Result directories that might contain large files
+results/
+output/
+data/
+
+# Docker specific
+.docker/
+docker-compose.override.yml
+
+# Environment and configuration
+.env
+.venv
+env/
+venv/
+ENV/
+.DS_Store
+._.DS_Store
+
+# Log files
+*.log
+log/
+logs/
+nohup.out
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.temp/
+*.swp
+*.swo
+
+# Specific analysis outputs
+*_report.html
+*.pdf
+*.png
+*.jpeg
+*.jpg
+*.svg
+
+# R specific
+.Rhistory
+.Rapp.history
+.RData
+.Rproj.user/
+.Ruserdata
+
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+*.ipynb
+.python-version
+.coverage
+htmlcov/
+
+# Editor settings
+.vscode/
+
+# Exception for small example data or test files
+!example_data/*.fastq.gz
+!test/*.vcf
+
+# Exception for important configuration files
+!config/*.yaml
+
+# Exception for metadata extraction scripts
+!metadata/*.sh
+!metadata/*.awk
+!metadata/*.py
+
+# Track workflow script
+!run_snv_analysis.sh

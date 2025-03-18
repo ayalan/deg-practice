@@ -1,551 +1,746 @@
-# RNA-seq Analysis: Differential Gene Expression and Cell Clustering Using Docker
+# Single-Cell RNA-Seq Analysis Guide: From FASTQ to DEGs
 
-Follow this guide to analyze RNA-seq data from a RNA-seq GSE dataset to identify differentially expressed genes (DEGs) and cluster cells based on their expression profiles. We'll use Docker containers to keep your system clean while leveraging powerful bioinformatics tools.
+## 1. Introduction and Background
 
-## Table of Contents
-- [Prerequisites](#prerequisites)
-- [Project Setup](#project-setup)
-- [Understanding Your Dataset](#understanding-your-dataset)
-- [Quality Control and Preprocessing](#quality-control-and-preprocessing)
-- [Quantifying Gene Expression](#quantifying-gene-expression)
-- [Differential Gene Expression Analysis](#differential-gene-expression-analysis)
-- [Cell Clustering](#cell-clustering)
-- [Visualizing Results](#visualizing-results)
-- [Complete Workflow Script](#complete-workflow-script)
-- [Troubleshooting](#troubleshooting)
+This guide will walk you through analyzing single-cell RNA sequencing (scRNA-seq) data from [GSE183590](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183590), a dataset from the paper [Single-cell RNA sequencing for the identification of early-stage lung cancer biomarkers from circulating blood](https://www.nature.com/articles/s41525-021-00248-y).
 
-## Prerequisites
+You'll learn how to process FASTQ files, cluster cell types, visualize the data, and identify differentially expressed genes (DEGs).
 
-Before starting, make sure you have:
-- Docker installed and running
-- Your GSE dataset downloaded (FASTQ files)
-- Basic familiarity with the command line
-- Approximately 50GB of free disk space
+We'll use Docker containers to manage the software environment, making it easier to run tools without installing them directly on your system.
 
-## Project Setup
+### Prerequisites
 
-### 1. Create Project Structure
+- Basic knowledge of command line interface
+- Docker installed on your macOS system
+- The FASTQ files you've already downloaded and processed from SRA
+- The matrix.txt metadata file
 
-```bash
-# Create main project directory
-mkdir -p ~/deg-practice/{data,results,scripts,metadata}
-cd ~/deg-practice
+### Overview of the Workflow
 
-# Create subdirectories for results
-mkdir -p results/{qc,counts,degs,clusters,visualization}
+1. Setup and Preparation
+2. Raw Data Processing
+3. Exploratory Data Analysis
+4. Cell Clustering and Annotation 
+5. Differential Expression Analysis
+6. Saving and Exporting Results
+
+Let's begin!
+
+## 2. Setup and Preparation
+
+### Project Directory Structure
+
+Before we begin, let's establish a clear directory structure for your project. This will help keep your analysis organized and make it easier to track your progress.
+
+```
+/deg-practice/                     # Main project directory
+├── data/                          # Contains all your FASTQ files and the reference genome
+│   ├── SRR15740035.fastq.gz
+│   ├── SRR15740036.fastq.gz
+│   ├── ...
+│   └── counts.txt                 # Counts matrix
+├── metadata/                      # GEO metadata files
+│   ├── GSE183590_family.soft.gz   # SOFT format metadata
+│   └── GSE183590_family.xml.gz    # MINiML format metadata
+├── reference/                     # Reference genome files
+│   ├── GRCh38.p13.fa                 # Reference genome in gzipped FASTA format
+│   ├── annotation.gtf             # Annotation file for featureCount
+│   └── (other reference files as needed)
+├── fastqc_results/                # Quality control results (optional)
+│   ├── SRR15740035_fastqc.html
+│   ├── SRR15740035_fastqc.zip
+│   └── ...
+├── seurat_analysis.rds            # Saved Seurat object
+├── cell_clusters.csv              # Cluster assignments
+├── umap_coordinates.csv           # UMAP coordinates for visualization
+├── top_markers.csv                # Top marker genes by cluster
+└── all_degs.csv                   # All differentially expressed genes
 ```
 
-### 2. Organize Your FASTQ Files
+This structure separates your data by function and keeps processed results separate from raw data. We'll create these directories as needed throughout the analysis.
 
-```bash
-# If your FASTQ files are spread across multiple directories, consolidate them
-find /path/to/downloaded/gse/data -name "*.fastq.gz" -exec ln -s {} data/ \;
+### Setting Up a Docker Environment for scRNA-seq Analysis
+
+Instead of installing various tools, let's create a reproducible Docker environment with all the necessary software for scRNA-seq analysis:
+
+Check that you have the Dockerfiles, `Dockerfile` and `Dockerfile.eutils`.
+
+Build the primary Docker image:
+```
+docker build -t scrnaseq-analysis:1.0 .
+
+# or if using MacOS with mX chips:
+docker build --platform linux/arm64 -t scrnaseq-analysis:1.0 .
 ```
 
-### 3. Create a Sample Metadata File
-
-Create a file `metadata/samples.csv` with sample information:
-
-```csv
-sample_id,condition,replicate
-SRR15739641,A549,1
-SRR15739642,A549,2
-# ... add all samples
+Verify the image was built successfully
+```
+docker images | grep scrnaseq-analysis
 ```
 
-## Understanding the Dataset
-
-GSE183590 is a single-cell RNA-seq dataset from non-small cell lung cancer. Before proceeding, it's important to understand:
+Take a look at the docker-compose.yml file understand the analysis environment a little better.
+To run your analysis environment using docker-compose:
 
 ```bash
-# Count your samples
-ls data/*.fastq.gz | wc -l
+# Start the container and enter an interactive R session
+docker-compose run --rm analysis R
 
-# View file naming pattern
-ls data/*.fastq.gz | head -5
-
-# Check file contents (beginning of a FASTQ file)
-zcat data/$(ls data/*.fastq.gz | head -1) | head -12
+# Or for an interactive bash shell
+docker-compose run --rm analysis bash
 ```
 
-## Quality Control and Preprocessing
+To exit or stop your Docker container when using docker-compose, you have a few options:
 
-### 1. Run FastQC on All Samples
+If you're in an interactive R session:
+1. Type `q()` and press Enter
+2. When prompted "Save workspace image?", type `n` (or your preference) and press Enter
+
+If you're in an interactive bash shell:
+1. Type exit and press Enter, or Press Ctrl+D
+
+### Downloading and Using GEO Metadata
+
+The SOFT and MINiML files from GEO provide crucial metadata about your samples. Let's download these and use them to understand the experimental design:
 
 ```bash
-# Pull FastQC Docker image
-docker pull biocontainers/fastqc:v0.11.9_cv8
+# Navigate to your metadata directory
+cd metadata
 
-# Run FastQC on all samples
-docker run --rm -v $(pwd):/data -w /data biocontainers/fastqc:v0.11.9_cv8 \
-  fastqc -t 4 -o results/qc data/*.fastq.gz
+# Download the SOFT and MINiML files from GEO
+wget https://ftp.ncbi.nlm.nih.gov/geo/series/GSE183nnn/GSE183590/soft/GSE183590_family.soft.gz
+wget https://ftp.ncbi.nlm.nih.gov/geo/series/GSE183nnn/GSE183590/miniml/GSE183590_family.xml.gz
+
+# Uncompress them for easier viewing
+gunzip GSE183590_family.soft.gz
+gunzip GSE183590_family.xml.gz
+
+# Take a look at the SOFT file to understand sample information
+grep -A 20 "!Sample_title" GSE183590_family.soft | head -n 40
 ```
 
-### 2. Generate QC Summary with MultiQC
+If you're using zsh, use single quotes instead of double in the grep command.
+
+This file helps in identifying which SRA accession (and thus FASTQ file) corresponds to which cell line and experimental condition, crucial for downstream analysis.
+
+### Download and Organize Your FASTQ Files
 
 ```bash
-# Pull MultiQC Docker image
-docker pull ewels/multiqc:latest
+# Use SRA Toolkit to download files from GEO
+brew install sra-toolkit
 
-# Run MultiQC to summarize FastQC results
-docker run --rm -v $(pwd):/data -w /data ewels/multiqc:latest \
-  multiqc results/qc -o results/qc
-```
+# Download all runs associated with the project
+cd data
+prefetch SRP336022
 
-### 3. Trim Reads if Necessary
-
-If FastQC reveals adapter contamination or poor quality bases:
-
-```bash
-# Pull Trimmomatic Docker image
-docker pull quay.io/biocontainers/trimmomatic:0.39--hdfd78af_2
-
-# Run Trimmomatic on each sample
-for fq in data/*.fastq.gz; do
-  sample=$(basename $fq .fastq.gz)
-  docker run --rm -v $(pwd):/data -w /data quay.io/biocontainers/trimmomatic:0.39--hdfd78af_2 \
-    trimmomatic SE \
-    /data/$fq \
-    /data/data/${sample}.trimmed.fastq.gz \
-    ILLUMINACLIP:/data/adapters/TruSeq3-SE.fa:2:30:10 \
-    LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+# Convert all downloaded SRA files to FASTQ
+for sra_file in $(find . -name "*.sra"); do
+  fasterq-dump $sra_file
 done
+
+# Compress the resulting FASTQ files
+gzip *.fastq
 ```
 
-## Quantifying Gene Expression
+### Extracting Cell Line Information from GEO Metadata
 
-### 1. Pull Required Container
+To integrate cell line information with your expression data, you need to create a mapping between SRA run accessions and their corresponding cell lines using the GEO metadata.
+
+Extract sample information from the SOFT file: 
 
 ```bash
-# Pull Salmon container for transcript quantification
-docker pull combinelab/salmon:latest
+# Make sure you're in the metadata folder
+cd metadata
+
+# Run script to extract metadata
+./extract_meta.sh
 ```
 
-### 2. Download Reference Transcriptome
+Create a mapping file between SRA accessions and cell lines, using the process_samples.awk script:
 
 ```bash
-# Create reference directory
+awk -f process_samples.awk sample_info.txt > cell_line_mapping.txt
+```
+
+This script:
+- Sets the output field separator to a tab `(OFS="\t")`
+- Looks for lines containing `!Sample_title` and saves the content to a variable
+- Looks for lines containing `!Sample_geo_accession` and saves the content
+- Looks for lines with `!Sample_relation` and then prints the collected data
+
+View the mapping file. This mapping file connects each GSM accession to its corresponding cell line and SRX. However, we're still missing the SRR, since the metadata files did not include them. We will need to query and map each SRX to SRR using the NCBI e-utils tool.
+
+We'll do this with a one-time use Docker container. See Dockerfile.eutils in this repo.
+
+```bash
+docker build -t ncbi-eutils-py -f Dockerfile.eutils .
+```
+
+```bash
+docker run -it --rm \
+  -v $(pwd)/metadata:/data \
+  ncbi-eutils-py \
+  python3 /data/map_srx_srr.py
+```
+
+The result is a clean, tabular metadata file that maps each SRA accession number to its corresponding cell line, which will be used in the analysis to annotate cells. 
+
+To summarize: we started with the SOFT file, used extract_meta.sh to generate a `sample_info.txt` file. Then we used `process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used elsewhere downstream.
+
+Later, after creating your Seurat object, you'll integrate this cell line information.
+
+## 3. Trimmed Data Processing
+
+### Processing scRNA-seq Data with HISAT2 and featureCount
+
+For data derived from the Fluidigm C1 platform, we will use HISAT2 for alignment and featureCount for generating the count matrix:
+
+```bash
+# Create necessary directories if they don't exist
+mkdir -p data/aligned
 mkdir -p reference
 
-# Download human reference transcriptome
-docker run --rm -v $(pwd):/data -w /data ubuntu:20.04 bash -c \
-  "apt-get update && apt-get install -y wget && \
-   wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_38/gencode.v38.transcripts.fa.gz -O /data/reference/gencode.v38.transcripts.fa.gz"
-```
+# Download the GRCh38.p13 reference genome into the reference folder
+cd reference
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.28_GRCh38.p13/GCA_000001405.28_GRCh38.p13_genomic.fna.gz
 
-### 3. Create Salmon Index
+# Prepare the reference genome
+gunzip -c GCA_000001405.28_GRCh38.p13_genomic.fna.gz > GRCh38.p13.fa
 
-```bash
-# Build Salmon index
-docker run --rm -v $(pwd):/data -w /data combinelab/salmon:latest \
-  salmon index -t /data/reference/gencode.v38.transcripts.fa.gz \
-               -i /data/reference/salmon_index \
-               -p 4
-```
+# Download the GRCh38.p13 gene annotations
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.28_GRCh38.p13/GCA_000001405.28_GRCh38.p13_genomic.gtf.gz
+gunzip GCA_000001405.28_GRCh38.p13_genomic.gtf.gz
+mv GCA_000001405.28_GRCh38.p13_genomic.gtf annotation.gtf
 
-### 4. Quantify Transcript Expression
+# Create a HISAT2 index
+hisat2-build reference/GRCh38.p13.fa reference/hisat2_index
 
-```bash
-# Create directory for Salmon results
-mkdir -p results/counts/salmon
-
-# Run Salmon quantification for each sample
-for fq in data/*.fastq.gz; do
-  sample=$(basename $fq .fastq.gz)
-  docker run --rm -v $(pwd):/data -w /data combinelab/salmon:latest \
-    salmon quant -i /data/reference/salmon_index \
-                -l A \
-                -r /data/$fq \
-                -p 4 \
-                --validateMappings \
-                -o /data/results/counts/salmon/$sample
+# Align each trimmed FASTQ file using HISAT2
+for file in data/*.fastq.gz; do
+  base=$(basename "$file" .fastq.gz)
+  hisat2 -p 4 -x reference/hisat2_index -U $file -S data/aligned/${base}.sam
 done
+
+# Convert SAM to BAM and sort using samtools
+for file in data/aligned/*.sam; do
+  base=$(basename "$file" .sam)
+  samtools view -bS $file | samtools sort -o data/aligned/${base}.sorted.bam
+done
+
+# Run featureCount to generate count matrix
+featureCounts -T 4 -a reference/annotation.gtf -o data/counts.txt data/aligned/*.sorted.bam
 ```
 
-## Differential Gene Expression Analysis
+## 4. Exploratory Data Analysis
 
-For this step, we'll use R with DESeq2 inside a Docker container.
+### Count Matrix Generation and Quality Control in R
 
-### 1. Create an R Script for DEG Analysis
-
-Create a file `scripts/deg_analysis.R` with:
-
-```R
-# Load libraries
-library(tximport)
-library(DESeq2)
-library(dplyr)
-library(ggplot2)
-
-# Read sample metadata
-samples <- read.csv("/data/metadata/samples.csv")
-
-# Get Salmon quant files
-files <- file.path("/data/results/counts/salmon", samples$sample_id, "quant.sf")
-names(files) <- samples$sample_id
-
-# Import transcript-level estimates
-tx2gene <- read.csv("/data/reference/tx2gene.csv")
-txi <- tximport(files, type="salmon", tx2gene=tx2gene)
-
-# Create DESeq2 object
-dds <- DESeqDataSetFromTximport(txi, colData = samples, design = ~ condition)
-dds <- dds[rowSums(counts(dds)) > 10, ]  # Filter low-expression genes
-
-# Run DESeq2
-dds <- DESeq(dds)
-
-# Get results
-res <- results(dds, contrast=c("condition", "A549", "control"))
-res <- res[order(res$padj), ]
-
-# Export results
-write.csv(as.data.frame(res), "/data/results/degs/deseq2_results.csv")
-
-# Create MA plot
-png("/data/results/degs/ma_plot.png", width=8, height=6, units="in", res=300)
-plotMA(res, ylim=c(-5,5))
-dev.off()
-
-# Create PCA plot
-vsd <- vst(dds, blind=FALSE)
-png("/data/results/degs/pca_plot.png", width=8, height=6, units="in", res=300)
-plotPCA(vsd, intgroup="condition")
-dev.off()
-
-# Create heatmap of top DEGs
-library(pheatmap)
-top_genes <- rownames(res)[1:50]
-mat <- assay(vsd)[top_genes, ]
-mat <- mat - rowMeans(mat)
-png("/data/results/degs/heatmap.png", width=10, height=8, units="in", res=300)
-pheatmap(mat, annotation_col=samples[,c("condition"),drop=FALSE])
-dev.off()
-
-# Create volcano plot
-res_df <- as.data.frame(res)
-res_df$gene <- rownames(res_df)
-res_df$significant <- ifelse(res_df$padj < 0.05 & abs(res_df$log2FoldChange) > 1, "Yes", "No")
-
-png("/data/results/degs/volcano_plot.png", width=8, height=6, units="in", res=300)
-ggplot(res_df, aes(x=log2FoldChange, y=-log10(padj), color=significant)) +
-  geom_point(alpha=0.6) +
-  scale_color_manual(values=c("No"="gray", "Yes"="red")) +
-  theme_bw() +
-  geom_vline(xintercept=c(-1, 1), linetype="dashed") +
-  geom_hline(yintercept=-log10(0.05), linetype="dashed") +
-  labs(title="Volcano Plot", x="Log2 Fold Change", y="-Log10 Adjusted P-value")
-dev.off()
-
-# Summary statistics
-sig_genes <- sum(res_df$padj < 0.05 & abs(res_df$log2FoldChange) > 1, na.rm=TRUE)
-up_genes <- sum(res_df$padj < 0.05 & res_df$log2FoldChange > 1, na.rm=TRUE)
-down_genes <- sum(res_df$padj < 0.05 & res_df$log2FoldChange < -1, na.rm=TRUE)
-
-write(paste("Significant DEGs:", sig_genes), "/data/results/degs/summary.txt")
-write(paste("Upregulated:", up_genes), "/data/results/degs/summary.txt", append=TRUE)
-write(paste("Downregulated:", down_genes), "/data/results/degs/summary.txt", append=TRUE)
-```
-
-### 2. Prepare tx2gene File
-
-Create a transcript-to-gene mapping file:
+Now, let's analyze the count matrix in R using the Seurat package:
 
 ```bash
-# Create tx2gene file
-docker run --rm -v $(pwd):/data -w /data --entrypoint=bash rocker/tidyverse:4.1.0 -c \
-  "Rscript -e \"library(biomaRt); \
-  mart <- useMart('ensembl', dataset='hsapiens_gene_ensembl'); \
-  tx <- getBM(attributes=c('ensembl_transcript_id', 'ensembl_gene_id', 'external_gene_name'), mart=mart); \
-  write.csv(tx, '/data/reference/tx2gene.csv', row.names=FALSE)\""
+# Run R in the container with all project directories mounted
+docker run -it --rm \
+    -v $(pwd)/data:/data \
+    -v $(pwd):/project \
+    scrnaseq-analysis:1.0 R
 ```
 
-### 3. Run DEG Analysis
-
-```bash
-# Pull R container with Bioconductor
-docker pull rocker/tidyverse:4.1.0
-
-# Install required R packages
-docker run --rm -v $(pwd):/data -w /data --entrypoint=bash rocker/tidyverse:4.1.0 -c \
-  "R -e \"install.packages('BiocManager'); \
-  BiocManager::install(c('tximport', 'DESeq2', 'pheatmap'))\""
-
-# Run DEG analysis
-docker run --rm -v $(pwd):/data -w /data rocker/tidyverse:4.1.0 \
-  Rscript /data/scripts/deg_analysis.R
-```
-
-## Cell Clustering
-
-For cell clustering based on gene expression patterns, we'll use Seurat in R:
-
-### 1. Create an R Script for Clustering
-
-Create a file `scripts/cell_clustering.R` with:
+Within R:
 
 ```R
 # Load libraries
 library(Seurat)
-library(tidyverse)
 library(ggplot2)
+library(dplyr)
+library(scater)
+library(scran)
+library(SingleCellExperiment)
 
-# Read expression data
-# First, create a matrix from Salmon counts
-samples <- read.csv("/data/metadata/samples.csv")
-files <- file.path("/data/results/counts/salmon", samples$sample_id, "quant.sf")
-names(files) <- samples$sample_id
+# Read the count matrix generated by featureCount
+counts <- read.table("/data/counts.txt", header = TRUE, row.names = 1)
 
-# Function to convert Salmon counts to a matrix
-get_counts <- function(files) {
-  all_counts <- list()
-  for (i in seq_along(files)) {
-    quant <- read.delim(files[i], sep="\t")
-    all_counts[[names(files)[i]]] <- quant$NumReads
-    rownames(all_counts[[names(files)[i]]]) <- quant$Name
-  }
-  counts_matrix <- do.call(cbind, all_counts)
-  return(counts_matrix)
-}
-
-counts <- get_counts(files)
-
-# Create Seurat object
+# Create a Seurat object
 seurat_obj <- CreateSeuratObject(counts = counts, project = "GSE183590", min.cells = 3, min.features = 200)
 
-# Add metadata
-seurat_obj$condition <- samples$condition[match(colnames(seurat_obj), samples$sample_id)]
+# Add cell line information from the metadata file
+cell_line_meta <- read.table("/data/cell_line_metadata.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
 
+# Map SRA accessions to cell lines
+# This assumes your cell/sample names in the Seurat object contain the SRA run accession
+# Adjust the matching logic if your naming convention is different
+sample_ids <- colnames(seurat_obj)
+cell_lines <- rep(NA, length(sample_ids))
+
+for (i in 1:length(sample_ids)) {
+  # Extract the SRA accession from the sample name
+  sra_match <- regexpr("SRR[0-9]+", sample_ids[i])
+  if (sra_match != -1) {
+    sra_id <- substr(sample_ids[i], sra_match, sra_match + attr(sra_match, "match.length") - 1)
+    # Find the cell line for this SRA accession
+    match_idx <- which(cell_line_meta$sample_id == sra_id)
+    if (length(match_idx) > 0) {
+      cell_lines[i] <- cell_line_meta$cell_line[match_idx[1]]
+    }
+  }
+}
+
+# Add the cell line information to the Seurat object
+seurat_obj$cell_line <- cell_lines
+
+# Verify cell line assignment success
+table(seurat_obj$cell_line, useNA = "ifany")
+
+# Calculate mitochondrial gene percentage
+seurat_obj[["percent.mt"]] <- PercentageFeatureSet(seurat_obj, pattern = "^MT-")
+
+# Visualize QC metrics
+VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+# Filter cells based on QC metrics
+seurat_obj <- subset(seurat_obj, subset = nFeature_RNA > 500 & nFeature_RNA < 6000 & percent.mt < 20)
+```
+
+### Normalization and Dimensionality Reduction
+
+After filtering, normalize the data and perform dimensionality reduction:
+
+```R
 # Normalize data
 seurat_obj <- NormalizeData(seurat_obj)
 
-# Find variable features
+# Identify highly variable features
 seurat_obj <- FindVariableFeatures(seurat_obj, selection.method = "vst", nfeatures = 2000)
 
 # Scale data
-seurat_obj <- ScaleData(seurat_obj)
+all_genes <- rownames(seurat_obj)
+seurat_obj <- ScaleData(seurat_obj, features = all_genes)
 
-# Run PCA
+# Perform PCA
 seurat_obj <- RunPCA(seurat_obj, features = VariableFeatures(object = seurat_obj))
 
-# Determine dimensionality
-png("/data/results/clusters/elbow_plot.png", width=8, height=6, units="in", res=300)
-ElbowPlot(seurat_obj, ndims = 50)
-dev.off()
+# Visualize PCA results
+ElbowPlot(seurat_obj)
 
-# Find neighbors and clusters
-seurat_obj <- FindNeighbors(seurat_obj, dims = 1:20)
-seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
+# Perform t-SNE dimensionality reduction (as used in the original paper)
+seurat_obj <- RunTSNE(
+  seurat_obj,
+  dims = 1:15,         # Use the first 15 PCs, adjust based on ElbowPlot
+  perplexity = 30,     # Default perplexity parameter
+  reduction.name = "tsne"
+)
 
-# Run UMAP and t-SNE
-seurat_obj <- RunUMAP(seurat_obj, dims = 1:20)
-seurat_obj <- RunTSNE(seurat_obj, dims = 1:20)
+# Visualize t-SNE results
+p1 <- DimPlot(seurat_obj, reduction = "tsne", pt.size = 1, label = TRUE) + 
+  ggtitle("t-SNE Visualization of Clusters")
 
-# Save the Seurat object
-saveRDS(seurat_obj, "/data/results/clusters/seurat_object.rds")
+# Save the t-SNE plot
+ggsave(filename = "/project/tsne_visualization.pdf", plot = p1, width = 10, height = 8)
 
-# Generate cluster plots
-# UMAP colored by cluster
-png("/data/results/clusters/umap_clusters.png", width=10, height=8, units="in", res=300)
-DimPlot(seurat_obj, reduction = "umap", group.by = "seurat_clusters")
-dev.off()
+# Color t-SNE by cell line instead of cluster (similar to Fig 1b in the paper)
+# Using the cell_line metadata column we added earlier
+p2 <- DimPlot(seurat_obj, reduction = "tsne", group.by = "cell_line", pt.size = 1) + 
+  ggtitle("t-SNE Visualization by Cell Line")
 
-# UMAP colored by condition
-png("/data/results/clusters/umap_condition.png", width=10, height=8, units="in", res=300)
-DimPlot(seurat_obj, reduction = "umap", group.by = "condition")
-dev.off()
+# Save the cell line t-SNE plot
+ggsave(filename = "/project/tsne_by_cellline.pdf", plot = p2, width = 10, height = 8)
+```
 
-# t-SNE colored by cluster
-png("/data/results/clusters/tsne_clusters.png", width=10, height=8, units="in", res=300)
-DimPlot(seurat_obj, reduction = "tsne", group.by = "seurat_clusters")
-dev.off()
+## 5. Cell Clustering and Annotation
 
-# Find markers for each cluster
-all_markers <- FindAllMarkers(seurat_obj, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
-write.csv(all_markers, "/data/results/clusters/cluster_markers.csv", row.names = FALSE)
+### Hierarchical Clustering with SC3
 
-# Generate heatmap of top markers
-top_markers <- all_markers %>%
+Let's perform unsupervised single-cell consensus clustering using SC3, which implements complete-linkage hierarchical clustering:
+
+```bash
+# Run R in the Docker container
+docker-compose run --rm analysis R
+```
+
+Within R: 
+```R
+# Load libraries for SC3 analysis
+library(Seurat)
+library(SingleCellExperiment)
+library(SC3)
+library(ggplot2)
+library(pheatmap)
+
+# Load the Seurat object if not already in memory
+# seurat_obj <- readRDS("/project/seurat_analysis.rds")
+
+# Convert Seurat object to SingleCellExperiment
+# We need the normalized data
+sce <- as.SingleCellExperiment(seurat_obj)
+
+# Prepare the dataset for SC3
+rowData(sce)$feature_symbol <- rownames(sce)
+sce <- sce[!duplicated(rowData(sce)$feature_symbol), ]
+rownames(sce) <- uniquifyFeatureNames(rowData(sce)$feature_symbol, rowData(sce)$feature_symbol)
+
+# Calculate gene filter (use top highly variable genes for efficiency)
+sce <- sc3_prepare(sce, gene_filter = TRUE, n_genes = 2000)
+
+# Run SC3 clustering for k=4 clusters (based on 4 cell lines)
+# For a more exploratory approach, use k_estimation=TRUE instead of specifying k=4
+sce <- sc3(sce, ks = 4, biology = TRUE, n_cores = 4)
+
+# Visualize SC3 consensus clustering
+sc3_plot_consensus(sce, k = 4, show_pdata = "cell_line")
+
+# Generate clustering heatmap with cell line annotations
+sc3_plot_expression(sce, k = 4, 
+                   show_pdata = c("sc3_4_clusters", "cell_line"))
+
+# Plot silhouette values to assess clustering quality
+sc3_plot_silhouette(sce, k = 4)
+
+# Get marker genes from SC3
+sc3_markers <- rowData(sce)[rowData(sce)$sc3_4_markers, ]
+
+# Save the SC3 marker genes
+write.csv(sc3_markers, "/project/sc3_marker_genes.csv", row.names = FALSE)
+```
+
+
+### Visualizing SC3 Clustering Results
+
+After performing SC3 hierarchical clustering, let's visualize the results in relation to the cell lines:
+
+```R
+# Add SC3 cluster assignments to the Seurat object (for visualization only)
+seurat_obj$sc3_clusters <- colData(sce)$sc3_4_clusters
+
+# Visualize cells in tSNE space, colored by SC3 clusters
+p_sc3_tsne <- DimPlot(seurat_obj, reduction = "tsne", 
+                    group.by = "sc3_clusters", pt.size = 1) + 
+  ggtitle("tSNE Colored by SC3 Clusters")
+
+# Compare visualization of SC3 clusters vs cell lines
+p_sc3_vs_cellline <- plot_grid(
+  DimPlot(seurat_obj, reduction = "tsne", group.by = "sc3_clusters", pt.size = 1) + 
+    ggtitle("SC3 Clusters"),
+  DimPlot(seurat_obj, reduction = "tsne", group.by = "cell_line", pt.size = 1) + 
+    ggtitle("Cell Lines"),
+  ncol = 2
+)
+
+# Save plots
+ggsave("/project/sc3_tsne.pdf", plot = p_sc3_tsne, width = 10, height = 8)
+ggsave("/project/sc3_vs_cellline.pdf", plot = p_sc3_vs_cellline, width = 16, height = 8)
+
+# Calculate agreement metrics between SC3 clusters and cell lines
+sc3_vs_cellline <- table(SC3 = seurat_obj$sc3_clusters, 
+                       CellLine = seurat_obj$cell_line)
+print(sc3_vs_cellline)
+
+# Install if needed: install.packages("mclust")
+library(mclust)
+# Calculate Adjusted Rand Index (measure of cluster agreement)
+ari_sc3_cellline <- adjustedRandIndex(seurat_obj$sc3_clusters, seurat_obj$cell_line)
+cat("Adjusted Rand Index (SC3 vs Cell Lines):", ari_sc3_cellline, "\n")
+```
+
+### Cell Line Annotation Using Metadata
+
+To identify what cell types the SC3 clusters represent, we'll use limma for differential expression analysis:
+
+```R
+# Identify marker genes using limma
+library(limma)
+library(edgeR)
+
+# Convert count data to DGEList object
+dge <- DGEList(counts = counts)
+
+# Normalize data
+dge <- calcNormFactors(dge)
+
+# Design matrix for differential expression based on SC3 clusters
+design <- model.matrix(~0 + seurat_obj$sc3_clusters)
+colnames(design) <- levels(factor(seurat_obj$sc3_clusters))
+
+# Voom transformation
+v <- voom(dge, design, plot = TRUE)
+
+# Fit linear model
+fit <- lmFit(v, design)
+
+# Contrast matrix for comparisons
+# For example, comparing cluster 1 vs 2
+contrast.matrix <- makeContrasts(Cluster1vsCluster2 = `1` - `2`, levels = design)
+
+# Fit contrasts
+fit2 <- contrasts.fit(fit, contrast.matrix)
+fit2 <- eBayes(fit2)
+
+# Extract DEGs
+limma_degs <- topTable(fit2, adjust = "BH", number = Inf)
+
+# View top DEGs
+head(limma_degs, n = 20)
+
+# Save DEGs to a file
+write.csv(limma_degs, "/project/sc3_limma_degs.csv")
+
+# Find marker genes for each SC3 cluster using Seurat's implementation
+# Set SC3 clusters as the active identity
+Idents(seurat_obj) <- "sc3_clusters"
+
+# Find markers for each SC3 cluster
+sc3_cluster_markers <- FindAllMarkers(seurat_obj, 
+                                     only.pos = TRUE, 
+                                     min.pct = 0.25, 
+                                     logfc.threshold = 0.25)
+
+# Get top 10 markers per SC3 cluster
+sc3_cluster_markers %>%
   group_by(cluster) %>%
-  top_n(n = 5, wt = avg_log2FC)
+  slice_max(n = 10, order_by = avg_log2FC) -> top_sc3_markers
 
-png("/data/results/clusters/markers_heatmap.png", width=12, height=10, units="in", res=300)
-DoHeatmap(seurat_obj, features = top_markers$gene) + NoLegend()
-dev.off()
+# View top markers
+print(head(top_sc3_markers, n = 20))
 
-# Generate feature plots for top markers
-top_genes <- top_markers %>%
-  top_n(n = 9, wt = avg_log2FC) %>%
-  pull(gene)
-
-png("/data/results/clusters/feature_plot.png", width=12, height=10, units="in", res=300)
-FeaturePlot(seurat_obj, features = top_genes, ncol = 3)
-dev.off()
-
-# Generate violin plots for top markers
-png("/data/results/clusters/violin_plot.png", width=12, height=10, units="in", res=300)
-VlnPlot(seurat_obj, features = top_genes[1:6], ncol = 3)
-dev.off()
+# Save markers
+write.csv(top_sc3_markers, "/project/top_sc3_markers.csv", row.names = FALSE)
 ```
 
-### 2. Run Cell Clustering
+Use GEO metadata from the MINiML or SOFT file to further annotate clusters with their corresponding cell lines.
 
-```bash
-# Install required R packages for clustering
-docker run --rm -v $(pwd):/data -w /data --entrypoint=bash rocker/tidyverse:4.1.0 -c \
-  "R -e \"install.packages('BiocManager'); \
-  BiocManager::install('Seurat')\""
+## 6. Differential Expression Analysis
 
-# Run clustering analysis
-docker run --rm -v $(pwd):/data -w /data rocker/tidyverse:4.1.0 \
-  Rscript /data/scripts/cell_clustering.R
+### Identifying Differentially Expressed Genes (DEGs)
+
+Following the methodology from the original paper, we'll set Cluster 1 as our reference/control cluster and identify DEGs by comparing it with other clusters. We'll apply the specific fold-change threshold of ≥|2| and FDR-corrected P-value < 0.05 in R:
+
+```R
+# Load required libraries for DEG analysis
+library(limma)
+library(edgeR)
+library(biomaRt)
+library(pheatmap)
+
+# Assuming Cluster 1 corresponds to cluster label 0 in Seurat
+# (adjust accordingly if your cluster numbers are different)
+reference_cluster <- 1 # Used to be 0
+
+# Create a list to store results from all comparisons
+deg_results <- list()
+
+# Set fold-change and p-value thresholds as specified in the paper
+logfc_threshold <- 1  # log2(2) = 1
+pval_threshold <- 0.05
+
+# Perform pairwise comparisons using Cluster 1 as reference
+for (cluster_id in unique(Idents(seurat_obj))) {
+  if (cluster_id != reference_cluster) {
+    # Calculate DEGs between reference cluster and current cluster
+    comparison_name <- paste0("Cluster", reference_cluster, "_vs_Cluster", cluster_id)
+    
+    deg_results[[comparison_name]] <- FindMarkers(
+      seurat_obj,
+      ident.1 = reference_cluster,   # Reference cluster (Cluster 1)
+      ident.2 = cluster_id,          # Target cluster
+      logfc.threshold = logfc_threshold,
+      min.pct = 0.1,                 # Detect genes that are expressed in at least 10% of cells
+      test.use = "wilcox",           # Non-parametric Wilcoxon rank sum test
+      only.pos = FALSE               # Get both up and down regulated genes
+    )
+    
+    # Apply FDR correction and filtering
+    deg_results[[comparison_name]]$FDR <- p.adjust(
+      deg_results[[comparison_name]]$p_val, 
+      method = "fdr"
+    )
+    
+    # Filter DEGs by FDR and fold-change
+    filtered_degs <- deg_results[[comparison_name]] %>%
+      as.data.frame() %>%
+      filter(FDR < pval_threshold & abs(avg_log2FC) >= logfc_threshold)
+    
+    # Add to the results list
+    deg_results[[comparison_name]] <- filtered_degs
+    
+    # Print summary
+    cat(paste0("DEGs in ", comparison_name, ": ", nrow(filtered_degs), 
+               " (", sum(filtered_degs$avg_log2FC > 0), " up-regulated, ", 
+               sum(filtered_degs$avg_log2FC < 0), " down-regulated)\n"))
+  }
+}
+
+# Combine all DEGs into a single data frame
+all_degs <- do.call(rbind, lapply(names(deg_results), function(comp_name) {
+  if (nrow(deg_results[[comp_name]]) > 0) {
+    df <- deg_results[[comp_name]]
+    df$comparison <- comp_name
+    df$gene <- rownames(df)
+    return(df)
+  } else {
+    return(NULL)
+  }
+}))
+
+# Save the combined DEGs to a file
+write.csv(all_degs, "/project/all_degs.csv", row.names = FALSE)
+
+# Cross-check gene IDs between Ensembl and NCBI gene databases
+# Connect to Ensembl database
+ensembl <- useMart(biomart = "ensembl", dataset = "hsapiens_gene_ensembl")
+
+# Get unique gene symbols from DEGs
+gene_symbols <- unique(rownames(all_degs))
+
+# Map gene symbols to Ensembl and NCBI IDs
+gene_id_mapping <- getBM(
+  attributes = c("hgnc_symbol", "ensembl_gene_id", "entrezgene_id"),
+  filters = "hgnc_symbol",
+  values = gene_symbols,
+  mart = ensembl
+)
+
+# Save gene ID mapping to a file
+write.csv(gene_id_mapping, "/project/gene_id_mapping.csv", row.names = FALSE)
+
+# Categorize DEGs into cluster-specific and cell-line-specific groups
+# First, create a matrix of expression values for all DEGs across cells
+deg_expr_matrix <- GetAssayData(seurat_obj, slot = "data")[rownames(all_degs), ]
+
+# Add metadata for cell line information
+cell_metadata <- data.frame(
+  Cluster = Idents(seurat_obj),
+  CellLine = seurat_obj$cell_line  # Using our mapped cell line information
+)
+
+# Generate heatmap for visual categorization
+pheatmap(
+  deg_expr_matrix,
+  annotation_col = cell_metadata,
+  show_rownames = FALSE,
+  show_colnames = FALSE,
+  scale = "row",
+  clustering_method = "complete",
+  clustering_distance_rows = "correlation",
+  clustering_distance_cols = "correlation",
+  filename = "/project/deg_heatmap.pdf",
+  width = 10,
+  height = 15
+)
+
+# Separate DEGs by up/down regulation per cluster comparison
+up_c1_vs_c2 <- rownames(deg_results[["Cluster1_vs_Cluster2"]][deg_results[["Cluster1_vs_Cluster2"]]$avg_log2FC > 0, ])
+down_c1_vs_c2 <- rownames(deg_results[["Cluster1_vs_Cluster2"]][deg_results[["Cluster1_vs_Cluster2"]]$avg_log2FC < 0, ])
+up_c1_vs_c3 <- rownames(deg_results[["Cluster1_vs_Cluster3"]][deg_results[["Cluster1_vs_Cluster3"]]$avg_log2FC > 0, ])
+down_c1_vs_c3 <- rownames(deg_results[["Cluster1_vs_Cluster3"]][deg_results[["Cluster1_vs_Cluster3"]]$avg_log2FC < 0, ])
+up_c1_vs_c4 <- rownames(deg_results[["Cluster1_vs_Cluster4"]][deg_results[["Cluster1_vs_Cluster4"]]$avg_log2FC > 0, ])
+down_c1_vs_c4 <- rownames(deg_results[["Cluster1_vs_Cluster4"]][deg_results[["Cluster1_vs_Cluster4"]]$avg_log2FC < 0, ])
+
+# Find unique DEGs for each category (similar to Fig 2a in the paper)
+unique_up_c1_vs_c2 <- setdiff(up_c1_vs_c2, c(up_c1_vs_c3, down_c1_vs_c3, up_c1_vs_c4, down_c1_vs_c4))
+unique_down_c1_vs_c2 <- setdiff(down_c1_vs_c2, c(up_c1_vs_c3, down_c1_vs_c3, up_c1_vs_c4, down_c1_vs_c4))
+unique_up_c1_vs_c3 <- setdiff(up_c1_vs_c3, c(up_c1_vs_c2, down_c1_vs_c2, up_c1_vs_c4, down_c1_vs_c4))
+unique_down_c1_vs_c3 <- setdiff(down_c1_vs_c3, c(up_c1_vs_c2, down_c1_vs_c2, up_c1_vs_c4, down_c1_vs_c4))
+unique_up_c1_vs_c4 <- setdiff(up_c1_vs_c4, c(up_c1_vs_c2, down_c1_vs_c2, up_c1_vs_c3, down_c1_vs_c3))
+unique_down_c1_vs_c4 <- setdiff(down_c1_vs_c4, c(up_c1_vs_c2, down_c1_vs_c2, up_c1_vs_c3, down_c1_vs_c3))
+
+# Create a table summarizing unique DEGs per category
+unique_degs_summary <- data.frame(
+  Comparison = c("Cluster1 vs Cluster2 (Up)", "Cluster1 vs Cluster2 (Down)",
+                "Cluster1 vs Cluster3 (Up)", "Cluster1 vs Cluster3 (Down)",
+                "Cluster1 vs Cluster4 (Up)", "Cluster1 vs Cluster4 (Down)"),
+  Total_DEGs = c(length(up_c1_vs_c2), length(down_c1_vs_c2),
+                length(up_c1_vs_c3), length(down_c1_vs_c3),
+                length(up_c1_vs_c4), length(down_c1_vs_c4)),
+  Unique_DEGs = c(length(unique_up_c1_vs_c2), length(unique_down_c1_vs_c2),
+                 length(unique_up_c1_vs_c3), length(unique_down_c1_vs_c3),
+                 length(unique_up_c1_vs_c4), length(unique_down_c1_vs_c4)),
+  Percentage = c(length(unique_up_c1_vs_c2)/length(up_c1_vs_c2)*100,
+                length(unique_down_c1_vs_c2)/length(down_c1_vs_c2)*100,
+                length(unique_up_c1_vs_c3)/length(up_c1_vs_c3)*100,
+                length(unique_down_c1_vs_c3)/length(down_c1_vs_c3)*100,
+                length(unique_up_c1_vs_c4)/length(up_c1_vs_c4)*100,
+                length(unique_down_c1_vs_c4)/length(down_c1_vs_c4)*100)
+)
+
+# Save the unique DEGs summary
+write.csv(unique_degs_summary, "/project/unique_degs_summary.csv", row.names = FALSE)
+
+# Generate volcano plots for each comparison
+for (comparison in names(deg_results)[sapply(deg_results, nrow) > 0]) {
+  # Create volcano plot data
+  volcano_data <- deg_results[[comparison]]
+  volcano_data$gene <- rownames(volcano_data)
+  
+  # Add significance and fold-change categories
+  volcano_data$significance <- ifelse(volcano_data$FDR < pval_threshold, 
+                                     ifelse(volcano_data$avg_log2FC > logfc_threshold, "Up-regulated",
+                                           ifelse(volcano_data$avg_log2FC < -logfc_threshold, "Down-regulated", "Not Significant")),
+                                     "Not Significant")
+  
+  # Plot
+  p <- ggplot(volcano_data, aes(x = avg_log2FC, y = -log10(FDR), color = significance)) +
+    geom_point(alpha = 0.7) +
+    scale_color_manual(values = c("Up-regulated" = "red", "Down-regulated" = "blue", "Not Significant" = "gray")) +
+    theme_minimal() +
+    labs(title = paste("Volcano Plot:", comparison),
+         x = "Log2 Fold Change",
+         y = "-Log10 FDR",
+         color = "Regulation") +
+    geom_hline(yintercept = -log10(pval_threshold), linetype = "dashed") +
+    geom_vline(xintercept = c(-logfc_threshold, logfc_threshold), linetype = "dashed")
+  
+  # Save plot
+  ggsave(paste0("/project/volcano_", gsub(" ", "_", comparison), ".pdf"), plot = p, width = 10, height = 8)
+}
 ```
 
-## Visualizing Results
+This approach closely follows the DEG analysis strategy from the paper:
+1. Uses Cluster 1 as the reference cluster for all comparisons
+2. Applies the exact fold-change threshold (≥|2|) and FDR-corrected P-value (<0.05) from the paper
+3. Cross-checks gene IDs between Ensembl and NCBI databases
+4. Categorizes DEGs into cluster-specific and cell-line-specific groups
+5. Identifies unique DEGs for each cluster comparison, similar to Figure 2a in the paper
+6. Creates volcano plots to visualize the statistical significance of DEGs
 
-After running the analyses, you'll have several visualizations:
+The code will also generate several output files that help visualize and interpret the results:
+- `all_degs.csv`: Combined list of all DEGs from all comparisons
+- `gene_id_mapping.csv`: Mapping between gene symbols, Ensembl IDs, and NCBI IDs
+- `deg_heatmap.pdf`: Heatmap for visual categorization of DEGs
+- `unique_degs_summary.csv`: Summary of unique DEGs per category
+- Volcano plots for each comparison
 
-### Differential Expression Results
-- MA Plot: `results/degs/ma_plot.png`
-- PCA Plot: `results/degs/pca_plot.png`
-- Heatmap: `results/degs/heatmap.png`
-- Volcano Plot: `results/degs/volcano_plot.png`
+## 7. Saving and Exporting Results
 
-### Clustering Results
-- UMAP Plots: `results/clusters/umap_clusters.png` and `results/clusters/umap_condition.png`
-- t-SNE Plot: `results/clusters/tsne_clusters.png`
-- Marker Heatmap: `results/clusters/markers_heatmap.png`
-- Feature Plots: `results/clusters/feature_plot.png`
-- Violin Plots: `results/clusters/violin_plot.png`
+Finally, save your Seurat object and export the results:
 
-## Complete Workflow Script
+```R
+# Save the Seurat object to the project directory
+saveRDS(seurat_obj, file = "/project/seurat_analysis.rds")
 
-Create `scripts/run_analysis.sh` to automate the workflow:
+# Export cluster assignments
+clusters <- data.frame(Cell = names(Idents(seurat_obj)), Cluster = as.numeric(Idents(seurat_obj)))
+write.csv(clusters, file = "/project/cell_clusters.csv", row.names = FALSE)
 
-```bash
-#!/bin/bash
-# RNA-seq Analysis Workflow
+# Export UMAP coordinates
+umap_coords <- data.frame(Cell = rownames(seurat_obj@reductions$umap@cell.embeddings),
+                          UMAP1 = seurat_obj@reductions$umap@cell.embeddings[,1],
+                          UMAP2 = seurat_obj@reductions$umap@cell.embeddings[,2])
+write.csv(umap_coords, file = "/project/umap_coordinates.csv", row.names = FALSE)
 
-set -e  # Exit on error
-
-# Create necessary directories
-mkdir -p ~/deg-practice/{data,results,scripts,metadata,reference}
-cd ~/deg-practice
-mkdir -p results/{qc,counts,degs,clusters,visualization}
-
-# Step 1: Quality Control
-echo "=== Running FastQC ==="
-docker pull biocontainers/fastqc:v0.11.9_cv8
-docker run --rm -v $(pwd):/data -w /data biocontainers/fastqc:v0.11.9_cv8 \
-  fastqc -t 4 -o results/qc data/*.fastq.gz
-
-echo "=== Generating QC Summary ==="
-docker pull ewels/multiqc:latest
-docker run --rm -v $(pwd):/data -w /data ewels/multiqc:latest \
-  multiqc results/qc -o results/qc
-
-# Step 2: Prepare Reference
-echo "=== Downloading Reference Transcriptome ==="
-docker run --rm -v $(pwd):/data -w /data ubuntu:20.04 bash -c \
-  "apt-get update && apt-get install -y wget && \
-   wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_38/gencode.v38.transcripts.fa.gz -O /data/reference/gencode.v38.transcripts.fa.gz"
-
-echo "=== Creating Salmon Index ==="
-docker pull combinelab/salmon:latest
-docker run --rm -v $(pwd):/data -w /data combinelab/salmon:latest \
-  salmon index -t /data/reference/gencode.v38.transcripts.fa.gz \
-               -i /data/reference/salmon_index \
-               -p 4
-
-# Step 3: Quantify Gene Expression
-echo "=== Quantifying Gene Expression ==="
-mkdir -p results/counts/salmon
-for fq in data/*.fastq.gz; do
-  sample=$(basename $fq .fastq.gz)
-  echo "Processing $sample"
-  docker run --rm -v $(pwd):/data -w /data combinelab/salmon:latest \
-    salmon quant -i /data/reference/salmon_index \
-                -l A \
-                -r /data/$fq \
-                -p 4 \
-                --validateMappings \
-                -o /data/results/counts/salmon/$sample
-done
-
-# Step 4: Create tx2gene mapping
-echo "=== Creating Transcript-to-Gene Mapping ==="
-docker pull rocker/tidyverse:4.1.0
-docker run --rm -v $(pwd):/data -w /data --entrypoint=bash rocker/tidyverse:4.1.0 -c \
-  "Rscript -e \"if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager'); \
-  if (!requireNamespace('biomaRt', quietly = TRUE)) BiocManager::install('biomaRt'); \
-  library(biomaRt); \
-  mart <- useMart('ensembl', dataset='hsapiens_gene_ensembl'); \
-  tx <- getBM(attributes=c('ensembl_transcript_id', 'ensembl_gene_id', 'external_gene_name'), mart=mart); \
-  write.csv(tx, '/data/reference/tx2gene.csv', row.names=FALSE)\""
-
-# Step 5: Install required R packages
-echo "=== Installing R Packages ==="
-docker run --rm -v $(pwd):/data -w /data --entrypoint=bash rocker/tidyverse:4.1.0 -c \
-  "R -e \"if (!requireNamespace('BiocManager', quietly = TRUE)) install.packages('BiocManager'); \
-  BiocManager::install(c('tximport', 'DESeq2', 'pheatmap', 'Seurat'))\""
-
-# Step 6: Differential Gene Expression Analysis
-echo "=== Running Differential Expression Analysis ==="
-docker run --rm -v $(pwd):/data -w /data rocker/tidyverse:4.1.0 \
-  Rscript /data/scripts/deg_analysis.R
-
-# Step 7: Cell Clustering
-echo "=== Running Cell Clustering ==="
-docker run --rm -v $(pwd):/data -w /data rocker/tidyverse:4.1.0 \
-  Rscript /data/scripts/cell_clustering.R
-
-echo "=== Analysis Complete! ==="
-echo "Results are available in the 'results' directory."
+# Note: top_markers have already been exported in Section 5
 ```
 
-Make the script executable and run it:
+## 8. Conclusion
 
-```bash
-chmod +x scripts/run_analysis.sh
-./scripts/run_analysis.sh
-```
+This guide has walked you through the essential steps for analyzing scRNA-seq data—from processing FASTQ files to identifying differentially expressed genes. With these modifications, the workflow now assumes the data is derived from the Fluidigm C1 platform and uses HISAT2 for alignment and featureCount for count matrix generation. Adjust parameters as needed based on your specific dataset.
 
-## Troubleshooting
+## Additional Resources
 
-### Common Issues and Solutions:
+- [Seurat vignettes](https://satijalab.org/seurat/vignettes.html)
+- [Orchestrating Single-Cell Analysis with Bioconductor](https://osca.bioconductor.org/)
+- [HISAT2 documentation](https://daehwankimlab.github.io/hisat2/)
+- [Subread/featureCounts documentation](http://subread.sourceforge.net/)
 
-1. **Docker permission issues**: 
-   If you get permission errors, try running the Docker commands with `sudo` or add your user to the Docker group.
+## Troubleshooting Tips
 
-2. **Memory limitations**:
-   - For large datasets, increase Docker's memory allocation in Docker Desktop settings
-   - For Salmon and R analyses, add memory parameters (e.g., `--max-memory=16G` for Salmon)
-
-3. **Missing packages in R**:
-   If the workflow stops due to missing R packages, you can install them separately:
-   ```bash
-   docker run --rm -v $(pwd):/data -w /data --entrypoint=bash rocker/tidyverse:4.1.0 -c \
-     "R -e \"BiocManager::install('packageName')\""
-   ```
-
-4. **Unmapped reads in Salmon**:
-   If Salmon reports a high percentage of unmapped reads, check:
-   - That you're using the correct reference transcriptome for your species
-   - That your library type is correctly specified (-l parameter)
-   - For contamination in your samples
-
-5. **Error in DESeq2/Seurat**:
-   - Check that your metadata file correctly matches your sample IDs
-   - Ensure the columns and format match what the scripts expect
-
-### Getting Help:
-
-If you encounter issues not covered here, these resources can help:
-- Docker documentation: https://docs.docker.com/
-- Salmon documentation: https://salmon.readthedocs.io/
-- DESeq2 vignette: http://bioconductor.org/packages/DESeq2
-- Seurat vignette: https://satijalab.org/seurat/articles/pbmc3k_tutorial
-
----
-
-This guide provides a comprehensive workflow to analyze RNA-seq data, identify differentially expressed genes, and perform cell clustering using Docker. The workflow is scalable to handle your GSE dataset with many FASTQ files while keeping your system clean by containing all tools within Docker.
+- If you encounter memory issues, consider adjusting the Docker container's resource allocation.
+- For large datasets, subsample the data for initial analyses.
+- If clustering does not clearly separate cell types, try modifying the resolution parameter or number of principal components.
+- Save intermediate steps to avoid losing progress.
