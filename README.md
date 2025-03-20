@@ -523,7 +523,7 @@ Use GEO metadata from the MINiML or SOFT file to further annotate clusters with 
 
 ### Identifying Differentially Expressed Genes (DEGs)
 
-Following the methodology from the original paper, we'll set Cluster 1 as our reference/control cluster and identify DEGs by comparing it with other clusters. We'll apply the specific fold-change threshold of ≥|2| and FDR-corrected P-value < 0.05 in R:
+Following the methodology from the original paper, we'll set Cluster 1 as our reference/control cluster and identify DEGs by comparing it with other clusters. We'll apply the specific fold-change threshold of ≥\|2\| and FDR-corrected P-value < 0.05 in R:
 
 ```R
 # Load required libraries for DEG analysis
