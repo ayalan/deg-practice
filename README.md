@@ -745,7 +745,9 @@ write.csv(umap_coords, file = "/project/umap_coordinates.csv", row.names = FALSE
 
 ## Conclusion
 
-This guide has walked us through the essential steps for analyzing scRNA-seq data—from processing FASTQ files to identifying differentially expressed genes. With these modifications, the workflow now assumes the data is derived from the Fluidigm C1 platform and uses HISAT2 for alignment and featureCount for count matrix generation. Adjust parameters as needed based on our specific dataset.
+This guide has walked us through the essential steps for analyzing scRNA-seq data—from processing FASTQ files to identifying differentially expressed genes. Congratulations! 
+
+This guide may be modified later to walk through some of the latter steps in the experiment's workflow. I will update it as I can.
 
 ## Additional Resources
 
