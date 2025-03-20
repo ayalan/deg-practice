@@ -1,8 +1,14 @@
 # Single-Cell RNA-Seq Analysis Guide: From FASTQ to DEGs
 
+## To Do's for this Guide
+
+ - I want to adjust it so I can run the analysis and processing on the cloud (still using Docker containers).
+ - The part about ASAP/CPM is missing.
+ - I want to add a 'Further Investigation' section about what else can be done with the data or other analysis that could be done.
+
 ## Introduction and Background
 
-This guide will walk you through analyzing single-cell RNA sequencing (scRNA-seq) data from [GSE183590](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183590), a dataset from the paper [Single-cell RNA sequencing for the identification of early-stage lung cancer biomarkers from circulating blood](https://www.nature.com/articles/s41525-021-00248-y).
+This guide will walk you through analyzing single-cell RNA sequencing (scRNA-seq) data from [GSE183590](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183590), a dataset from the paper [Single-cell RNA sequencing for the identification of early-stage lung cancer biomarkers from circulating blood](https://www.nature.com/articles/s41525-021-00248-y). (I'm a complete newbie to bioinformatics and molecular biology so please pardon my mistakes. I'm updating this document as I go.)
 
 You'll learn how to process FASTQ files, cluster cell types, visualize the data, and identify differentially expressed genes (DEGs).
 
