@@ -9,7 +9,7 @@
 
 ## Introduction
 
-This guide will walk you through analyzing single-cell RNA sequencing (scRNA-seq) data from [GSE183590](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183590), a dataset from the paper [Single-cell RNA sequencing for the identification of early-stage lung cancer biomarkers from circulating blood](https://www.nature.com/articles/s41525-021-00248-y). (I'm a complete newbie to bioinformatics and molecular biology so please pardon my mistakes. I'm updating this document as I go.)
+This guide will walk us through analyzing single-cell RNA sequencing (scRNA-seq) data from [GSE183590](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183590), a dataset from the paper [Single-cell RNA sequencing for the identification of early-stage lung cancer biomarkers from circulating blood](https://www.nature.com/articles/s41525-021-00248-y). (I'm a complete newbie to bioinformatics and molecular biology so please pardon my mistakes. I'm updating this document as I go.)
 
 We'll learn how to process FASTQ files, cluster cell types, visualize the data, and identify differentially expressed genes (DEGs).
 
@@ -19,7 +19,7 @@ We'll use Docker containers to manage the software environment, making it easier
 
 - Basic knowledge of command line interface
 - Docker should be installed (Dockerfiles are included in repo)
-- The FASTQ files you've already downloaded and processed from SRA, and metadata
+- The FASTQ files we've already downloaded and processed from SRA, and metadata
 
 ### Overview of Experiment Workflow
 
@@ -78,7 +78,7 @@ This structure separates our data by function and keeps processed results separa
 
 Instead of installing various tools, let's create a reproducible Docker environment with all the necessary software for scRNA-seq analysis:
 
-Check that you have the Dockerfiles, `Dockerfile` and `Dockerfile.eutils`.
+Check that we have the Dockerfiles, `Dockerfile` and `Dockerfile.eutils`.
 
 Build the primary Docker image:
 ```
@@ -104,13 +104,13 @@ docker-compose run --rm analysis R
 docker-compose run --rm analysis bash
 ```
 
-To exit or stop our Docker container when using docker-compose, you have a few options:
+To exit or stop our Docker container when using docker-compose, we have a few options:
 
-If you're in an interactive R session:
+If we're in an interactive R session:
 1. Type `q()` and press Enter
 2. When prompted "Save workspace image?", type `n` (or our preference) and press Enter
 
-If you're in an interactive bash shell:
+If we're in an interactive bash shell:
 1. Type exit and press Enter, or Press Ctrl+D
 
 ### Downloading and Using GEO Metadata
@@ -133,7 +133,7 @@ gunzip GSE183590_family.xml.gz
 grep -A 20 "!Sample_title" GSE183590_family.soft | head -n 40
 ```
 
-If you're using zsh, use single quotes instead of double in the grep command.
+If we're using zsh, use single quotes instead of double in the grep command.
 
 This file helps in identifying which SRA accession (and thus FASTQ file) corresponds to which cell line and experimental condition, crucial for downstream analysis.
 
@@ -158,12 +158,12 @@ gzip *.fastq
 
 ### Extracting Cell Line Information from GEO Metadata
 
-To integrate cell line information with our expression data, you need to create a mapping between SRA run accessions and their corresponding cell lines using the GEO metadata.
+To integrate cell line information with our expression data, we need to create a mapping between SRA run accessions and their corresponding cell lines using the GEO metadata.
 
 Extract sample information from the SOFT file: 
 
 ```bash
-# Make sure you're in the metadata folder
+# Make sure we're in the metadata folder
 cd metadata
 
 # Run script to extract metadata
@@ -744,7 +744,7 @@ write.csv(umap_coords, file = "/project/umap_coordinates.csv", row.names = FALSE
 
 ## Conclusion
 
-This guide has walked you through the essential steps for analyzing scRNA-seq data—from processing FASTQ files to identifying differentially expressed genes. With these modifications, the workflow now assumes the data is derived from the Fluidigm C1 platform and uses HISAT2 for alignment and featureCount for count matrix generation. Adjust parameters as needed based on our specific dataset.
+This guide has walked us through the essential steps for analyzing scRNA-seq data—from processing FASTQ files to identifying differentially expressed genes. With these modifications, the workflow now assumes the data is derived from the Fluidigm C1 platform and uses HISAT2 for alignment and featureCount for count matrix generation. Adjust parameters as needed based on our specific dataset.
 
 ## Additional Resources
 
@@ -755,7 +755,7 @@ This guide has walked you through the essential steps for analyzing scRNA-seq da
 
 ## Troubleshooting Tips
 
-- If you encounter memory issues, consider adjusting the Docker container's resource allocation.
+- If we encounter memory issues, consider adjusting the Docker container's resource allocation.
 - For large datasets, subsample the data for initial analyses.
 - If clustering does not clearly separate cell types, try modifying the resolution parameter or number of principal components.
 - Save intermediate steps to avoid losing progress.
