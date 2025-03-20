@@ -9,7 +9,6 @@
   <rect width="100%" height="100%" fill="white" />
   
   <!-- Title -->
-  <text x="600" y="40" text-anchor="middle" font-family="Arial" font-size="24" font-weight="bold" fill="#333">Flow of Experiments and Observations</text>
   
   <!-- Row 1: Steps 1-3 (Left to Right) -->
   <!-- Step 1 -->
