@@ -5,6 +5,7 @@
  - I want to adjust it so I can run the analysis and processing on the cloud (still using Docker containers).
  - The part about ASAP/CPM is missing.
  - I want to add a 'Further Investigation' section about what else can be done with the data or other analysis that could be done.
+ - The whole processing and visualization of up/down-regulation needs work.
 
 ## Introduction
 
