@@ -17,9 +17,8 @@ We'll use Docker containers to manage the software environment, making it easier
 ### Prerequisites
 
 - Basic knowledge of command line interface
-- Docker installed on your macOS system
-- The FASTQ files you've already downloaded and processed from SRA
-- The matrix.txt metadata file
+- Docker should be installed (Dockerfiles are included in repo)
+- The FASTQ files you've already downloaded and processed from SRA, and metadata
 
 ### Overview of Experiment Workflow
 
