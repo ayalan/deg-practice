@@ -752,7 +752,7 @@ This guide has walked us through the essential steps for analyzing scRNA-seq dat
 ## Additional Resources
 
 - [Seurat vignettes](https://satijalab.org/seurat/vignettes.html)
-- [Orchestrating Single-Cell Analysis with Bioconductor](https://osca.bioconductor.org/)
+- [Orchestrating Single-Cell Analysis with Bioconductor](https://bioconductor.org/books/release/OSCA/)
 - [HISAT2 documentation](https://daehwankimlab.github.io/hisat2/)
 - [Subread/featureCounts documentation](http://subread.sourceforge.net/)
 
