@@ -58,7 +58,7 @@
   
   <!-- Step 5 -->
   <rect x="450" y="320" width="300" height="160" rx="15" ry="15" fill="#e6f2ff" stroke="#3399ff" stroke-width="2"/>
-  <text x="600" y="345" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#333">Step 5: Pre-screening in Patient Samples</text>
+  <text x="600" y="345" text-anchor="middle" font-family="Arial" font-size="15" font-weight="bold" fill="#333">Step 5: Pre-screening in Patient Samples</text>
   <text x="600" y="370" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#555">Experiment:</text>
   <text x="600" y="390" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">Assessed TAA expression in 34 Stage I</text>
   <text x="600" y="410" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">lung adenocarcinoma patients</text>
@@ -138,12 +138,12 @@
   <!-- Final Conclusion -->
   <rect x="50" y="800" width="300" height="160" rx="15" ry="15" fill="#fff2e6" stroke="#ff9933" stroke-width="2"/>
   <text x="200" y="825" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#333">Final Conclusion</text>
-  <text x="200" y="855" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">The integrated analysis identified</text>
-  <text x="200" y="875" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">miR-532-5p as a promising blood-based</text>
-  <text x="200" y="895" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">biomarker for early-stage lung cancer</text>
-  <text x="200" y="915" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">detection, with inverse correlation to</text>
-  <text x="200" y="935" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">CXCL1/CXCL2 expression in tumors and</text>
-  <text x="200" y="955" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">quantifiable levels in patient plasma</text>
+  <text x="200" y="845" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">The integrated analysis identified</text>
+  <text x="200" y="855" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">miR-532-5p as a promising blood-based</text>
+  <text x="200" y="885" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">biomarker for early-stage lung cancer</text>
+  <text x="200" y="905" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">detection, with inverse correlation to</text>
+  <text x="200" y="925" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">CXCL1/CXCL2 expression in tumors and</text>
+  <text x="200" y="945" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">quantifiable levels in patient plasma</text>
   
   <!-- Connecting Arrows -->
   <!-- Row 1 Connections -->
