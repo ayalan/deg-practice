@@ -1,6 +1,6 @@
 # Single-Cell RNA-Seq Analysis Guide: From FASTQ to DEGs
 
-## 1. Introduction and Background
+## Introduction and Background
 
 This guide will walk you through analyzing single-cell RNA sequencing (scRNA-seq) data from [GSE183590](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183590), a dataset from the paper [Single-cell RNA sequencing for the identification of early-stage lung cancer biomarkers from circulating blood](https://www.nature.com/articles/s41525-021-00248-y).
 
@@ -24,16 +24,16 @@ We'll use Docker containers to manage the software environment, making it easier
 This exercise aims to cover Steps 1 and 2 in the Experiment Workflow above.
 Within those steps, we'll handle the following tasks:
 
-2. Setup and Preparation
-3. Raw Data Processing
-4. Exploratory Data Analysis
-5. Cell Clustering and Annotation 
-6. Differential Expression Analysis
-7. Saving and Exporting Results
+1. Setup and Preparation
+2. Raw Data Processing
+3. Exploratory Data Analysis
+4. Cell Clustering and Annotation 
+5. Differential Expression Analysis
+6. Saving and Exporting Results
 
 Let's begin!
 
-## 2. Setup and Preparation
+## 1. Setup and Preparation
 
 ### Project Directory Structure
 
@@ -195,7 +195,7 @@ To summarize: we started with the SOFT file, used extract_meta.sh to generate a 
 
 Later, after creating your Seurat object, you'll integrate this cell line information.
 
-## 3. Trimmed Data Processing
+## 2. Trimmed Data Processing
 
 ### Processing scRNA-seq Data with HISAT2 and featureCount
 
@@ -237,7 +237,7 @@ done
 featureCounts -T 4 -a reference/annotation.gtf -o data/counts.txt data/aligned/*.sorted.bam
 ```
 
-## 4. Exploratory Data Analysis
+## 3. Exploratory Data Analysis
 
 ### Count Matrix Generation and Quality Control in R (Replace this section with ASAP and CPM (voom))
 
@@ -351,7 +351,7 @@ p2 <- DimPlot(seurat_obj, reduction = "tsne", group.by = "cell_line", pt.size = 
 ggsave(filename = "/project/tsne_by_cellline.pdf", plot = p2, width = 10, height = 8)
 ```
 
-## 5. Cell Clustering and Annotation
+## 4. Cell Clustering and Annotation
 
 ### Hierarchical Clustering with SC3
 
@@ -512,7 +512,7 @@ write.csv(top_sc3_markers, "/project/top_sc3_markers.csv", row.names = FALSE)
 
 Use GEO metadata from the MINiML or SOFT file to further annotate clusters with their corresponding cell lines.
 
-## 6. Differential Expression Analysis
+## 5. Differential Expression Analysis
 
 ### Identifying Differentially Expressed Genes (DEGs)
 
@@ -713,7 +713,7 @@ The code will also generate several output files that help visualize and interpr
 - `unique_degs_summary.csv`: Summary of unique DEGs per category
 - Volcano plots for each comparison
 
-## 7. Saving and Exporting Results
+## 6. Saving and Exporting Results
 
 Finally, save your Seurat object and export the results:
 
@@ -734,7 +734,7 @@ write.csv(umap_coords, file = "/project/umap_coordinates.csv", row.names = FALSE
 # Note: top_markers have already been exported in Section 5
 ```
 
-## 8. Conclusion
+## Conclusion
 
 This guide has walked you through the essential steps for analyzing scRNA-seq data—from processing FASTQ files to identifying differentially expressed genes. With these modifications, the workflow now assumes the data is derived from the Fluidigm C1 platform and uses HISAT2 for alignment and featureCount for count matrix generation. Adjust parameters as needed based on your specific dataset.
 
