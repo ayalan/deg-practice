@@ -199,15 +199,15 @@ docker run -it --rm \
 
 The result is a clean, tabular metadata file that maps each SRA accession number to its corresponding cell line, which will be used in the analysis to annotate cells. 
 
-To summarize: we started with the SOFT file, used extract_meta.sh to generate a `sample_info.txt` file. Then we used `process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used elsewhere downstream.
+To summarize: we started with the SOFT file, `used extract_meta.sh` to generate a `sample_info.txt` file. Then we used `process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used anywhere.
 
-Later, after creating your Seurat object, you'll integrate this cell line information.
+You'll integrate the cell line metadata later downstream.
 
 ## 2. Trimmed Data Processing
 
 ### Processing scRNA-seq Data with HISAT2 and featureCount
 
-For data derived from the Fluidigm C1 platform, we will use HISAT2 for alignment and featureCount for generating the count matrix:
+For data derived from the Fluidigm C1 platform, we will use HISAT2 for alignment and featureCount for generating the count matrix. (As I understand it, I might require other tools for aligning and counts if it were data from 10x.)
 
 ```bash
 # Create necessary directories if they don't exist
