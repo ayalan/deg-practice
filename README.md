@@ -6,10 +6,13 @@
  - The part about ASAP/CPM is missing.
  - I want to add a 'Further Investigation' section about what else can be done with the data or other analysis that could be done.
  - The whole processing and visualization of up/down-regulation needs work.
+ - I had significant help from Claude Sonnet 3.7 for the R portions of this document because it's not my forté. I want to properly review and clean it later.
 
 ## Introduction
 
-This guide will walk us through analyzing single-cell RNA sequencing (scRNA-seq) data from [GSE183590](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183590), a dataset from the paper [Single-cell RNA sequencing for the identification of early-stage lung cancer biomarkers from circulating blood](https://www.nature.com/articles/s41525-021-00248-y). (I'm a complete newbie to bioinformatics and molecular biology so please pardon my mistakes. I'm updating this document as I go.)
+This guide will walk us through analyzing single-cell RNA sequencing (scRNA-seq) data from [GSE183590](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183590), a dataset from the paper [Single-cell RNA sequencing for the identification of early-stage lung cancer biomarkers from circulating blood](https://www.nature.com/articles/s41525-021-00248-y). 
+
+(I'm a newbie to bioinformatics and molecular biology so please pardon my mistakes. I'm updating this document as I go.)
 
 We'll learn how to process FASTQ files, cluster cell types, visualize the data, and identify differentially expressed genes (DEGs).
 
