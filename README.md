@@ -22,6 +22,8 @@ We'll use Docker containers to manage the software environment, making it easier
 
 ### Overview of Experiment Workflow
 
+This diagram represents the experiments and observations completed in the paper as I understand them.
+
 ![Experiment Flow Chart](./experiment-flow.svg)
 
 ### What's Covered in this Exercise
