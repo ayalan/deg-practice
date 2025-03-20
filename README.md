@@ -708,7 +708,7 @@ for (comparison in names(deg_results)[sapply(deg_results, nrow) > 0]) {
 
 This approach closely follows the DEG analysis strategy from the paper:
 1. Uses Cluster 1 as the reference cluster for all comparisons
-2. Applies the exact fold-change threshold (≥|2|) and FDR-corrected P-value (<0.05) from the paper
+2. Applies the exact fold-change threshold (≥\|2\|) and FDR-corrected P-value (<0.05) from the paper
 3. Cross-checks gene IDs between Ensembl and NCBI databases
 4. Categorizes DEGs into cluster-specific and cell-line-specific groups
 5. Identifies unique DEGs for each cluster comparison, similar to Figure 2a in the paper
