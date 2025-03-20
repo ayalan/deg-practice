@@ -11,9 +11,9 @@
 
 This guide will walk you through analyzing single-cell RNA sequencing (scRNA-seq) data from [GSE183590](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183590), a dataset from the paper [Single-cell RNA sequencing for the identification of early-stage lung cancer biomarkers from circulating blood](https://www.nature.com/articles/s41525-021-00248-y). (I'm a complete newbie to bioinformatics and molecular biology so please pardon my mistakes. I'm updating this document as I go.)
 
-You'll learn how to process FASTQ files, cluster cell types, visualize the data, and identify differentially expressed genes (DEGs).
+We'll learn how to process FASTQ files, cluster cell types, visualize the data, and identify differentially expressed genes (DEGs).
 
-We'll use Docker containers to manage the software environment, making it easier to run tools without installing them directly on your system.
+We'll use Docker containers to manage the software environment, making it easier to run tools without installing them directly on our system.
 
 ### Prerequisites
 
@@ -45,11 +45,11 @@ Let's begin!
 
 ### Project Directory Structure
 
-Before we begin, let's establish a clear directory structure for your project. This will help keep your analysis organized and make it easier to track your progress.
+Before we begin, let's establish a clear directory structure for our project. This will help keep our analysis organized and make it easier to track our progress.
 
 ```
 /deg-practice/                     # Main project directory
-├── data/                          # Contains all your FASTQ files and the reference genome
+├── data/                          # Contains all our FASTQ files and the reference genome
 │   ├── SRR15740035.fastq.gz
 │   ├── SRR15740036.fastq.gz
 │   ├── ...
@@ -72,7 +72,7 @@ Before we begin, let's establish a clear directory structure for your project. T
 └── all_degs.csv                   # All differentially expressed genes
 ```
 
-This structure separates your data by function and keeps processed results separate from raw data. We'll create these directories as needed throughout the analysis.
+This structure separates our data by function and keeps processed results separate from raw data. We'll create these directories as needed throughout the analysis.
 
 ### Setting Up a Docker Environment for scRNA-seq Analysis
 
@@ -94,7 +94,7 @@ docker images | grep scrnaseq-analysis
 ```
 
 Take a look at the docker-compose.yml file understand the analysis environment a little better.
-To run your analysis environment using docker-compose:
+To run our analysis environment using docker-compose:
 
 ```bash
 # Start the container and enter an interactive R session
@@ -104,21 +104,21 @@ docker-compose run --rm analysis R
 docker-compose run --rm analysis bash
 ```
 
-To exit or stop your Docker container when using docker-compose, you have a few options:
+To exit or stop our Docker container when using docker-compose, you have a few options:
 
 If you're in an interactive R session:
 1. Type `q()` and press Enter
-2. When prompted "Save workspace image?", type `n` (or your preference) and press Enter
+2. When prompted "Save workspace image?", type `n` (or our preference) and press Enter
 
 If you're in an interactive bash shell:
 1. Type exit and press Enter, or Press Ctrl+D
 
 ### Downloading and Using GEO Metadata
 
-The SOFT and MINiML files from GEO provide crucial metadata about your samples. Let's download these and use them to understand the experimental design:
+The SOFT and MINiML files from GEO provide crucial metadata about our samples. Let's download these and use them to understand the experimental design:
 
 ```bash
-# Navigate to your metadata directory
+# Navigate to our metadata directory
 cd metadata
 
 # Download the SOFT and MINiML files from GEO
@@ -137,7 +137,7 @@ If you're using zsh, use single quotes instead of double in the grep command.
 
 This file helps in identifying which SRA accession (and thus FASTQ file) corresponds to which cell line and experimental condition, crucial for downstream analysis.
 
-### Download and Organize Your FASTQ Files
+### Download and Organize Our FASTQ Files
 
 ```bash
 # Use SRA Toolkit to download files from GEO
@@ -158,7 +158,7 @@ gzip *.fastq
 
 ### Extracting Cell Line Information from GEO Metadata
 
-To integrate cell line information with your expression data, you need to create a mapping between SRA run accessions and their corresponding cell lines using the GEO metadata.
+To integrate cell line information with our expression data, you need to create a mapping between SRA run accessions and their corresponding cell lines using the GEO metadata.
 
 Extract sample information from the SOFT file: 
 
@@ -201,7 +201,7 @@ The result is a clean, tabular metadata file that maps each SRA accession number
 
 To summarize: we started with the SOFT file, `used extract_meta.sh` to generate a `sample_info.txt` file. Then we used `process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used anywhere.
 
-You'll integrate the cell line metadata later downstream.
+We'll integrate the cell line metadata later downstream.
 
 ## 2. Trimmed Data Processing
 
@@ -280,8 +280,8 @@ seurat_obj <- CreateSeuratObject(counts = counts, project = "GSE183590", min.cel
 cell_line_meta <- read.table("/data/cell_line_metadata.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
 
 # Map SRA accessions to cell lines
-# This assumes your cell/sample names in the Seurat object contain the SRA run accession
-# Adjust the matching logic if your naming convention is different
+# This assumes our cell/sample names in the Seurat object contain the SRA run accession
+# Adjust the matching logic if our naming convention is different
 sample_ids <- colnames(seurat_obj)
 cell_lines <- rep(NA, length(sample_ids))
 
@@ -534,7 +534,7 @@ library(biomaRt)
 library(pheatmap)
 
 # Assuming Cluster 1 corresponds to cluster label 0 in Seurat
-# (adjust accordingly if your cluster numbers are different)
+# (adjust accordingly if our cluster numbers are different)
 reference_cluster <- 1 # Used to be 0
 
 # Create a list to store results from all comparisons
@@ -723,7 +723,7 @@ The code will also generate several output files that help visualize and interpr
 
 ## 6. Saving and Exporting Results
 
-Finally, save your Seurat object and export the results:
+Finally, save our Seurat object and export the results:
 
 ```R
 # Save the Seurat object to the project directory
@@ -744,7 +744,7 @@ write.csv(umap_coords, file = "/project/umap_coordinates.csv", row.names = FALSE
 
 ## Conclusion
 
-This guide has walked you through the essential steps for analyzing scRNA-seq data—from processing FASTQ files to identifying differentially expressed genes. With these modifications, the workflow now assumes the data is derived from the Fluidigm C1 platform and uses HISAT2 for alignment and featureCount for count matrix generation. Adjust parameters as needed based on your specific dataset.
+This guide has walked you through the essential steps for analyzing scRNA-seq data—from processing FASTQ files to identifying differentially expressed genes. With these modifications, the workflow now assumes the data is derived from the Fluidigm C1 platform and uses HISAT2 for alignment and featureCount for count matrix generation. Adjust parameters as needed based on our specific dataset.
 
 ## Additional Resources
 
