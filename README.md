@@ -15,14 +15,21 @@ We'll use Docker containers to manage the software environment, making it easier
 - The FASTQ files you've already downloaded and processed from SRA
 - The matrix.txt metadata file
 
+### Original Paper's Experiment Workflow
+
+![Experiment Flow Chart](./experiment-flow.svg)
+
 ### Overview of the Workflow
 
-1. Setup and Preparation
-2. Raw Data Processing
-3. Exploratory Data Analysis
-4. Cell Clustering and Annotation 
-5. Differential Expression Analysis
-6. Saving and Exporting Results
+This exercise aims to cover Steps 1 and 2 in the Experiment Workflow above.
+Within those steps, we'll handle the following tasks:
+
+2. Setup and Preparation
+3. Raw Data Processing
+4. Exploratory Data Analysis
+5. Cell Clustering and Annotation 
+6. Differential Expression Analysis
+7. Saving and Exporting Results
 
 Let's begin!
 
@@ -232,7 +239,7 @@ featureCounts -T 4 -a reference/annotation.gtf -o data/counts.txt data/aligned/*
 
 ## 4. Exploratory Data Analysis
 
-### Count Matrix Generation and Quality Control in R
+### Count Matrix Generation and Quality Control in R (Replace this section with ASAP and CPM (voom))
 
 Now, let's analyze the count matrix in R using the Seurat package:
 

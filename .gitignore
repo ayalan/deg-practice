@@ -68,7 +68,6 @@ temp/
 *.png
 *.jpeg
 *.jpg
-*.svg
 
 # R specific
 .Rhistory
