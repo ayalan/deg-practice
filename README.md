@@ -10,11 +10,11 @@
 
 ## Introduction
 
-This guide will walk us through analyzing single-cell RNA sequencing (scRNA-seq) data from [GSE183590](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183590), a dataset from the paper [Single-cell RNA sequencing for the identification of early-stage lung cancer biomarkers from circulating blood](https://www.nature.com/articles/s41525-021-00248-y). 
+We'll learn how to process FASTQ files, cluster cell types, visualize the data, and identify differentially expressed genes (DEGs) by analyzing scRNA-seq data from [GSE183590](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183590), a dataset from the paper [Single-cell RNA sequencing for the identification of early-stage lung cancer biomarkers from circulating blood](https://www.nature.com/articles/s41525-021-00248-y). 
 
 (I'm a newbie to bioinformatics and molecular biology so please pardon my mistakes. I'm updating this document as I go.)
 
-We'll learn how to process FASTQ files, cluster cell types, visualize the data, and identify differentially expressed genes (DEGs).
+
 
 We'll use Docker containers to manage the software environment, making it easier to run tools without installing them directly on our system.
 
