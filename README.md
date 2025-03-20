@@ -48,8 +48,6 @@ Let's begin!
 
 ### Project Directory Structure
 
-Before we begin, let's establish a clear directory structure for our project. This will help keep our analysis organized and make it easier to track our progress.
-
 ```
 /deg-practice/                     # Main project directory
 ├── data/                          # Contains all our FASTQ files and the reference genome
