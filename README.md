@@ -50,9 +50,9 @@ Before we begin, let's establish a clear directory structure for your project. T
 │   ├── GSE183590_family.soft.gz   # SOFT format metadata
 │   └── GSE183590_family.xml.gz    # MINiML format metadata
 ├── reference/                     # Reference genome files
-│   ├── GRCh38.p13.fa                 # Reference genome in gzipped FASTA format
+│   ├── GRCh38.p13.fa              # Reference genome in gzipped FASTA format
 │   ├── annotation.gtf             # Annotation file for featureCount
-│   └── (other reference files as needed)
+│   └── ...
 ├── fastqc_results/                # Quality control results (optional)
 │   ├── SRR15740035_fastqc.html
 │   ├── SRR15740035_fastqc.zip
