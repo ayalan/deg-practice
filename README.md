@@ -15,11 +15,11 @@ We'll use Docker containers to manage the software environment, making it easier
 - The FASTQ files you've already downloaded and processed from SRA
 - The matrix.txt metadata file
 
-### Original Paper's Experiment Workflow
+### Overview of Experiment Workflow
 
 ![Experiment Flow Chart](./experiment-flow.svg)
 
-### Overview of the Workflow
+### What's Covered in this Exercise
 
 This exercise aims to cover Steps 1 and 2 in the Experiment Workflow above.
 Within those steps, we'll handle the following tasks:
