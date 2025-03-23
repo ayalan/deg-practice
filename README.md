@@ -240,7 +240,10 @@ gget ref -w dna homo_sapiens -d
 gunzip -c Homo_sapiens.GRCh38.113.gtf.gz > annotation.gtf
 
 # Create a HISAT2 index
-hisat2-build reference/genome.fa reference/hisat2_index
+time hisat2-build genome.fa hisat2_index
+
+# Return to project root
+cd ..
 
 # Align each trimmed FASTQ file using HISAT2
 for file in data/*.fastq.gz; do
