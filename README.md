@@ -220,7 +220,7 @@ The result is a clean, tabular metadata file that maps each SRA accession number
 
 To summarize: we started with the SOFT file, `used extract_meta.sh` to generate a `sample_info.txt` file. Then we used `process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used anywhere. We finally cleaned the file again and produced `cell_line_metadata_asap.txt` which we'll later use to import as metadata in ASAP.
 
-## 2. Trimmed Data Processing
+## 2. Creating a Count Matrix
 
 ### Processing scRNA-seq Data with HISAT2 and featureCount
 
@@ -230,7 +230,11 @@ For data derived from the Fluidigm C1 platform, we will use HISAT2 for alignment
 # Create necessary directories if they don't exist
 mkdir -p data/aligned
 mkdir -p reference
+```
 
+### Download reference genome data
+
+```bash
 # Download the GRCh38.p13 reference genome with gget
 cd reference
 gget ref -w dna homo_sapiens -d
@@ -239,17 +243,22 @@ gunzip -c Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz > genome.fa
 # Download the GRCh38.p13 gene annotations
 gget ref -w dna homo_sapiens -d
 gunzip -c Homo_sapiens.GRCh38.113.gtf.gz > annotation.gtf
+```
 
-# Create a HISAT2 index
+### Create a HISAT2 index and align FASTQ data
+
+```bash
+# Index reference genome
 time hisat2-build genome.fa hisat2_index
 
 # Return to project root
 cd ..
 
 # Align each trimmed FASTQ file using HISAT2
+# Adjust thread count -p with number of cores available to you
 for file in data/*.fastq.gz; do
   base=$(basename "$file" .fastq.gz)
-  hisat2 -p 4 -x reference/hisat2_index -U $file -S data/aligned/${base}.sam
+  hisat2 -p 12 -x reference/hisat2_index -U $file -S data/aligned/${base}.sam
 done
 
 # Convert SAM to BAM and sort using samtools
@@ -259,7 +268,8 @@ for file in data/aligned/*.sam; do
 done
 
 # Run featureCount to generate count matrix
-featureCounts -T 4 -a reference/annotation.gtf -o output/counts.txt data/aligned/*.sorted.bam
+# Adjust thread count -T with number of cores available to you
+featureCounts -T 12 -a reference/annotation.gtf -o output/counts.txt data/aligned/*.sorted.bam
 ```
 
 The result is `counts.txt` and `counts.txt.summary`. To prepare the counts file for ASAP, we'll need to clean some of the file content. You'll notice that the first row is meant to be just a comment, and the second row uses the path name instead of sample name from column 7 and on. We can clean it using the following:
