@@ -129,11 +129,9 @@ cd metadata
 
 # Download the SOFT and MINiML files from GEO
 wget https://ftp.ncbi.nlm.nih.gov/geo/series/GSE183nnn/GSE183590/soft/GSE183590_family.soft.gz
-wget https://ftp.ncbi.nlm.nih.gov/geo/series/GSE183nnn/GSE183590/miniml/GSE183590_family.xml.gz
 
 # Uncompress them for easier viewing
 gunzip GSE183590_family.soft.gz
-gunzip GSE183590_family.xml.gz
 
 # Take a look at the SOFT file to understand sample information
 grep -A 20 "!Sample_title" GSE183590_family.soft | head -n 40
