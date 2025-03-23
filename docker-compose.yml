@@ -5,6 +5,8 @@ services:
       - ./data:/data
       - ./results:/results
       - ./reference:/reference
+      - ./metadata:/metadata
+      - ./data/sra-cache:/data/sra-cache
     working_dir: /data
     # Uncomment the next line if you want to use the container interactively
     # command: /bin/bash

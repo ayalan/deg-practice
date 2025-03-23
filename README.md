@@ -141,10 +141,7 @@ This file helps in identifying which SRA accession (and thus FASTQ file) corresp
 ### Download and Organize Our FASTQ Files
 
 ```bash
-# Use SRA Toolkit to download files from GEO
-brew install sra-toolkit
-
-# Download all runs associated with the project
+# Use SRA Toolkit to all runs associated with the project from GEO
 cd data
 prefetch SRP336022
 
@@ -152,6 +149,9 @@ prefetch SRP336022
 for sra_file in $(find . -name "*.sra"); do
   fasterq-dump $sra_file
 done
+
+# Or, do it with specified threads
+fasterq-dump SRP336022 --threads 8
 
 # Compress the resulting FASTQ files
 gzip *.fastq
@@ -198,11 +198,21 @@ docker run -it --rm \
   python3 /data/map_srx_srr.py
 ```
 
+If you look at the newly made cell_line_metadata.txt, the cell line names contain a read number. We should remove those with this quick awk script:
+
+```bash
+awk 'BEGIN {OFS="\t"}
+     NR==1 {print $0}  # Keep the header as-is
+     NR>1 {
+         # Print sample_id, then just the cell line name without the number
+         split($2, parts, " ")
+         print $1, parts[1]  # Print sample_id and just the first part of cell_line
+     }' metadata/cell_line_metadata.txt > metadata/cell_line_metadata_asap.txt
+```
+
 The result is a clean, tabular metadata file that maps each SRA accession number to its corresponding cell line, which will be used in the analysis to annotate cells. 
 
-To summarize: we started with the SOFT file, `used extract_meta.sh` to generate a `sample_info.txt` file. Then we used `process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used anywhere.
-
-We'll integrate the cell line metadata later downstream.
+To summarize: we started with the SOFT file, `used extract_meta.sh` to generate a `sample_info.txt` file. Then we used `process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used anywhere. We finally cleaned the file again and produced `cell_line_metadata_asap.txt` which we'll later use to import as metadata in ASAP.
 
 ## 2. Trimmed Data Processing
 
@@ -246,9 +256,45 @@ done
 featureCounts -T 4 -a reference/annotation.gtf -o data/counts.txt data/aligned/*.sorted.bam
 ```
 
-## 3. Exploratory Data Analysis
+The result is counts.txt and counts.txt.summary. To prepare the counts file for ASAP, we'll need to clean some of the file content. You'll notice that the first row is meant to be just a comment, and the second row uses the path name instead of sample name from column 7 and on. We can clean it using the following:
 
-### Count Matrix Generation and Quality Control in R (Replace this section with ASAP and CPM (voom))
+```bash
+# Step 1: Skip the first line (metadata/command) and process from the second line
+# Step 2: For the header row, keep "Geneid" and clean sample names (columns 7+)
+# Step 3: Keep all data rows unchanged
+
+awk 'BEGIN {OFS="\t"} 
+     NR==2 {
+         # Process the header row
+         printf "Geneid";
+         for(i=7; i<=NF; i++) {
+             # Clean the sample name - extract just SRR ID
+             sample = $i;
+             gsub(".*/", "", sample);        # Remove path
+             gsub("\\.sorted\\.bam", "", sample);  # Remove extension
+             printf "\t%s", sample;
+         }
+         printf "\n";
+     }
+     NR>2 {
+         # Process data rows - keep gene ID and count values
+         printf "%s", $1;                    # Gene ID
+         for(i=7; i<=NF; i++) {              # Count values
+             printf "\t%s", $i;
+         }
+         printf "\n";
+     }' data/counts.txt > data/counts_for_asap.txt
+```
+
+The processed file for import into ASAP is now ready.
+
+## 3. Exploratory Data Analysis in ASAP
+
+Upload our resulting `data/counts_for_asap.txt` file into the web-based ASAP platform.
+
+Also upload the metadata that maps cell lines to same sample with `metadata/cell_line_metadata_asap.txt`
+
+### The following part is just an exploratory bit and has nothing to do with ASAP:
 
 Now, let's analyze the count matrix in R using the Seurat package:
 

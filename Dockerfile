@@ -20,8 +20,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfftw3-dev \
     libgsl-dev \
     parallel \
+    wget \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Install SRA toolkit
+RUN wget https://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/current/sratoolkit.current-ubuntu64.tar.gz && \
+    tar -xzf sratoolkit.current-ubuntu64.tar.gz && \
+    cp -r sratoolkit.*/bin/* /usr/local/bin/ && \
+    rm -rf sratoolkit.* && \
+    mkdir -p /root/.ncbi && \
+    printf '/LIBS/GUID = "%s"\n' `uuidgen` > /root/.ncbi/user-settings.mkfg && \
+    printf '/repository/user/main/public/root = "%s"\n' "/data/sra-cache" >> /root/.ncbi/user-settings.mkfg && \
+    printf '/repository/user/default-path = "%s"\n' "/data/sra-cache" >> /root/.ncbi/user-settings.mkfg
 
 # Install R packages with compatible version
 RUN R -e "options(repos = c(CRAN = 'https://cran.r-project.org')); \
@@ -41,11 +52,10 @@ RUN R -e "options(repos = c(CRAN = 'https://cran.r-project.org')); \
     ), ask = FALSE)"
 
 # Create directories for data and results
-RUN mkdir -p /data /results /reference
+RUN mkdir -p /data /results /reference /metadata
 
 # Set working directory
 WORKDIR /data
 
 # Command to run when the container starts
 CMD ["R"]
-
