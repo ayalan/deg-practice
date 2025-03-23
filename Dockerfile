@@ -24,6 +24,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Python packages for genomic data retrieval in a virtual environment
+RUN python3 -m venv /opt/venv && \
+    . /opt/venv/bin/activate && \
+    pip3 install --no-cache-dir gget ffq && \
+    # Make sure venv is activated when container starts
+    echo '. /opt/venv/bin/activate' >> ~/.bashrc
+
+# Add the virtual environment to PATH
+ENV PATH="/opt/venv/bin:$PATH"
+
 # Install SRA toolkit
 RUN wget https://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/current/sratoolkit.current-ubuntu64.tar.gz && \
     tar -xzf sratoolkit.current-ubuntu64.tar.gz && \
@@ -41,14 +51,9 @@ RUN R -e "options(repos = c(CRAN = 'https://cran.r-project.org')); \
       'Seurat', \
       'SingleCellExperiment', \
       'scater', \
-      'scran', \
       'SC3', \
-      'MAST', \
       'clusterProfiler', \
-      'limma', \
-      'edgeR', \
-      'org.Hs.eg.db', \
-      'patchwork' \
+      'limma' \
     ), ask = FALSE)"
 
 # Create directories for data and results
