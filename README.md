@@ -132,8 +132,11 @@ wget https://ftp.ncbi.nlm.nih.gov/geo/series/GSE183nnn/GSE183590/soft/GSE183590_
 
 # Uncompress them for easier viewing
 gunzip GSE183590_family.soft.gz
+```
 
-# Take a look at the SOFT file to understand sample information
+Take a look at the SOFT file to understand sample information
+
+```bash
 grep -A 20 "!Sample_title" GSE183590_family.soft | head -n 40
 ```
 
@@ -203,7 +206,7 @@ docker run -it --rm \
 
 If you look at the newly made cell_line_metadata.txt, the cell line names contain a read number. We should remove those with this quick awk script:
 
-```bash
+```awk
 awk 'BEGIN {OFS="\t"}
      NR==1 {print $0}  # Keep the header as-is
      NR>1 {
@@ -261,7 +264,7 @@ featureCounts -T 4 -a reference/annotation.gtf -o output/counts.txt data/aligned
 
 The result is `counts.txt` and `counts.txt.summary`. To prepare the counts file for ASAP, we'll need to clean some of the file content. You'll notice that the first row is meant to be just a comment, and the second row uses the path name instead of sample name from column 7 and on. We can clean it using the following:
 
-```bash
+```awk
 # Step 1: Skip the first line (metadata/command) and process from the second line
 # Step 2: For the header row, keep "Geneid" and clean sample names (columns 7+)
 # Step 3: Keep all data rows unchanged
