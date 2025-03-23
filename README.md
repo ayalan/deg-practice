@@ -171,8 +171,8 @@ To integrate cell line information with our expression data, we need to create a
 Extract sample information from the SOFT file: 
 
 ```bash
-# Make sure we're in the metadata folder
-cd metadata
+# Make sure we're in the scripts folder
+cd scripts
 
 # Run script to extract metadata
 ./extract_meta.sh
@@ -181,7 +181,7 @@ cd metadata
 Create a mapping file between SRA accessions and cell lines, using the process_samples.awk script:
 
 ```bash
-awk -f process_samples.awk sample_info.txt > cell_line_mapping.txt
+awk -f process_samples.awk output/sample_info.txt > output/cell_line_mapping.txt
 ```
 
 This script:
