@@ -21,7 +21,6 @@ We'll use Docker containers to manage the software environment, making it easier
 
 - Basic knowledge of command line interface
 - Docker should be installed (Dockerfiles are included in repo)
-- The FASTQ files we've already downloaded and processed from SRA, and metadata
 
 ### Overview of Experiment Workflow
 
@@ -56,12 +55,11 @@ Let's begin!
 │   ├── SRR15740036.fastq.gz
 │   └── ...
 ├── metadata/                      # GEO metadata files
-│   ├── GSE183590_family.soft.gz   # SOFT format metadata
-│   └── GSE183590_family.xml.gz    # MINiML format metadata
+│   └── GSE183590_family.soft.gz   # SOFT format metadata
 ├── output/                        # Contains output of various scripts
 │   └── ...
 ├── reference/                     # Contains reference genome files
-│   ├── GRCh38.p13.fa              # Reference genome in gzipped FASTA format
+│   ├── genome.fa                  # Reference genome in gzipped FASTA format
 │   ├── annotation.gtf             # Annotation file for featureCount
 │   └── ...
 ├── scripts/                       # Scripts to process data and metadata
@@ -260,7 +258,7 @@ done
 featureCounts -T 4 -a reference/annotation.gtf -o output/counts.txt data/aligned/*.sorted.bam
 ```
 
-The result is counts.txt and counts.txt.summary. To prepare the counts file for ASAP, we'll need to clean some of the file content. You'll notice that the first row is meant to be just a comment, and the second row uses the path name instead of sample name from column 7 and on. We can clean it using the following:
+The result is `counts.txt` and `counts.txt.summary`. To prepare the counts file for ASAP, we'll need to clean some of the file content. You'll notice that the first row is meant to be just a comment, and the second row uses the path name instead of sample name from column 7 and on. We can clean it using the following:
 
 ```bash
 # Step 1: Skip the first line (metadata/command) and process from the second line
@@ -300,17 +298,23 @@ Also upload the metadata that maps cell lines to same sample with `output/cell_l
 
 ## 4. Cell Clustering and Annotation
 
+TODO
+
 ### Hierarchical Clustering with SC3
 
 Let's perform unsupervised single-cell consensus clustering using SC3, which implements complete-linkage hierarchical clustering.
 
 ### Visualizing SC3 Clustering Results
 
+TODO
+
 ### Cell Line Annotation Using Metadata
 
-Use GEO metadata from the MINiML or SOFT file to further annotate clusters with their corresponding cell lines.
+Use GEO metadata from the SOFT file to further annotate clusters with their corresponding cell lines.
 
 ## 5. Differential Expression Analysis
+
+TODO
 
 ### Identifying Differentially Expressed Genes (DEGs)
 
