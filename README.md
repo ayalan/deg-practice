@@ -2,11 +2,12 @@
 
 ## To Do's for this Guide
 
- - I want to adjust it so I can run the analysis and processing on the cloud (still using Docker containers).
- - The part about ASAP/CPM is missing.
  - I want to add a 'Further Investigation' section about what else can be done with the data or other analysis that could be done.
  - The whole processing and visualization of up/down-regulation needs work.
  - I had significant help from Claude Sonnet 3.7 for the R portions of this document because it's not my forté. I want to properly review and clean it later.
+ - Consider gget for downloading reference genome DB and annotations
+ - Consider ffq
+ - 
 
 ## Introduction
 
@@ -50,18 +51,26 @@ Let's begin!
 
 ```
 /deg-practice/                     # Main project directory
-├── data/                          # Contains all our FASTQ files and the reference genome
+├── data/                          # Contains our FASTQ files
+│   ├── aligned/                   # Contains SAM and BAM files
+│   │   └── ...                    
 │   ├── SRR15740035.fastq.gz
 │   ├── SRR15740036.fastq.gz
-│   ├── ...
-│   └── counts.txt                 # Counts matrix
+│   └── ...
 ├── metadata/                      # GEO metadata files
 │   ├── GSE183590_family.soft.gz   # SOFT format metadata
 │   └── GSE183590_family.xml.gz    # MINiML format metadata
-├── reference/                     # Reference genome files
+├── output/                        # Contains output of various scripts
+│   └── ...
+├── reference/                     # Contains reference genome files
 │   ├── GRCh38.p13.fa              # Reference genome in gzipped FASTA format
 │   ├── annotation.gtf             # Annotation file for featureCount
 │   └── ...
+├── scripts/                       # Scripts to process data and metadata
+│   ├── extract_meta.sh            # Extracts metadata we want from SOFT file
+│   ├── map_srx_srr.sh             # Maps SRX to SRR metadata
+│   ├── process_samples.awk        # Creates tabular file with SRX and cell line
+│   └── sra-to-fastq.sh            # Converts all SRA files to FASTQ
 ├── fastqc_results/                # Quality control results (optional)
 │   ├── SRR15740035_fastqc.html
 │   ├── SRR15740035_fastqc.zip
@@ -207,7 +216,7 @@ awk 'BEGIN {OFS="\t"}
          # Print sample_id, then just the cell line name without the number
          split($2, parts, " ")
          print $1, parts[1]  # Print sample_id and just the first part of cell_line
-     }' metadata/cell_line_metadata.txt > metadata/cell_line_metadata_asap.txt
+     }' output/cell_line_metadata.txt > output/cell_line_metadata_asap.txt
 ```
 
 The result is a clean, tabular metadata file that maps each SRA accession number to its corresponding cell line, which will be used in the analysis to annotate cells. 
@@ -253,7 +262,7 @@ for file in data/aligned/*.sam; do
 done
 
 # Run featureCount to generate count matrix
-featureCounts -T 4 -a reference/annotation.gtf -o data/counts.txt data/aligned/*.sorted.bam
+featureCounts -T 4 -a reference/annotation.gtf -o output/counts.txt data/aligned/*.sorted.bam
 ```
 
 The result is counts.txt and counts.txt.summary. To prepare the counts file for ASAP, we'll need to clean some of the file content. You'll notice that the first row is meant to be just a comment, and the second row uses the path name instead of sample name from column 7 and on. We can clean it using the following:
@@ -283,16 +292,16 @@ awk 'BEGIN {OFS="\t"}
              printf "\t%s", $i;
          }
          printf "\n";
-     }' data/counts.txt > data/counts_for_asap.txt
+     }' output/counts.txt > output/counts_for_asap.txt
 ```
 
 The processed file for import into ASAP is now ready.
 
 ## 3. Exploratory Data Analysis in ASAP
 
-Upload our resulting `data/counts_for_asap.txt` file into the web-based ASAP platform.
+Upload our resulting `output/counts_for_asap.txt` file into the web-based ASAP platform.
 
-Also upload the metadata that maps cell lines to same sample with `metadata/cell_line_metadata_asap.txt`
+Also upload the metadata that maps cell lines to same sample with `output/cell_line_metadata_asap.txt`
 
 ### The following part is just an exploratory bit and has nothing to do with ASAP:
 
@@ -794,6 +803,12 @@ write.csv(umap_coords, file = "/project/umap_coordinates.csv", row.names = FALSE
 This guide has walked us through the essential steps for analyzing scRNA-seq data—from processing FASTQ files to identifying differentially expressed genes. Congratulations! 
 
 This guide may be modified later to walk through some of the latter steps in the experiment's workflow. I will update it as I can.
+
+## Further Investigation
+
+- We could imputate with MAGIC, SAVER, or scImpute and look for any interesting changes in clustering or DEF results.
+- Try the workflow again using kallisto bus and see how much faster it is than hisat2 (since it does pseudo-alignment)
+- 
 
 ## Additional Resources
 

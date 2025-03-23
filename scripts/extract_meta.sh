@@ -11,7 +11,7 @@
 # the AWK script later.
 
 # Start with a clean file
-> sample_info.txt
+> output/sample_info.txt
 
 # Process each sample
 for gsm in $(grep '!Sample_geo_accession' GSE183590_family.soft | cut -d ' ' -f 3); do
@@ -20,7 +20,7 @@ for gsm in $(grep '!Sample_geo_accession' GSE183590_family.soft | cut -d ' ' -f 
   
   # Extract title and GSM
   title=$(echo "$section" | grep '!Sample_title' | head -n 1)
-  echo "$title" >> sample_info.txt
+  echo "$title" >> output/sample_info.txt
   echo "!Sample_geo_accession = $gsm" >> sample_info.txt
   
   # Extract SRA relation
@@ -31,5 +31,5 @@ for gsm in $(grep '!Sample_geo_accession' GSE183590_family.soft | cut -d ' ' -f 
     echo "!Sample_relation = SRA: Not_Found" >> sample_info.txt
   fi
   
-  echo "" >> sample_info.txt  # Add an empty line between samples
+  echo "" >> output/sample_info.txt  # Add an empty line between samples
 done

@@ -52,7 +52,7 @@ RUN R -e "options(repos = c(CRAN = 'https://cran.r-project.org')); \
     ), ask = FALSE)"
 
 # Create directories for data and results
-RUN mkdir -p /data /results /reference /metadata
+RUN mkdir -p /data /results /reference /metadata /output /scripts
 
 # Set working directory
 WORKDIR /data

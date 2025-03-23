@@ -9,15 +9,15 @@ os.environ["NCBI_API_KEY"] = "key_goes_here"
 print("Starting SRX to SRR mapping with API key set in environment")
 
 # Create output files
-with open("srx_to_srr_mapping.txt", "w") as f:
+with open("output/srx_to_srr_mapping.txt", "w") as f:
     f.write("srx_id\tsrr_id\n")
 
-with open("cell_line_metadata.txt", "w") as f:
+with open("output/cell_line_metadata.txt", "w") as f:
     f.write("sample_id\tcell_line\n")
 
 # Extract SRX IDs
 srx_ids = []
-with open("cell_line_mapping.txt", "r") as f:
+with open("output/cell_line_mapping.txt", "r") as f:
     for line in f:
         if line.startswith("sample_id"):
             continue
@@ -29,7 +29,7 @@ print(f"Found {len(srx_ids)} SRX IDs to process")
 
 # Read cell line mapping
 srx_to_cell = {}
-with open("cell_line_mapping.txt", "r") as f:
+with open("output/cell_line_mapping.txt", "r") as f:
     for line in f:
         if line.startswith("sample_id"):
             continue
@@ -76,12 +76,12 @@ for srx in srx_ids:
                 print(f"{srx} -> {srr}")
                 
                 # Save to mapping file
-                with open("srx_to_srr_mapping.txt", "a") as f:
+                with open("output/srx_to_srr_mapping.txt", "a") as f:
                     f.write(f"{srx}\t{srr}\n")
                 
                 # Save to metadata file
                 if srx in srx_to_cell:
-                    with open("cell_line_metadata.txt", "a") as f:
+                    with open("output/cell_line_metadata.txt", "a") as f:
                         f.write(f"{srr}\t{srx_to_cell[srx]}\n")
             else:
                 print(f"{srx} -> No valid SRR found in result")
@@ -95,4 +95,4 @@ for srx in srx_ids:
     time.sleep(1.0)
 
 print(f"Processed {count}/{len(srx_ids)} SRX IDs.")
-print("Results saved to srx_to_srr_mapping.txt and cell_line_metadata.txt")
+print("Results saved to output/srx_to_srr_mapping.txt and ouput/cell_line_metadata.txt")

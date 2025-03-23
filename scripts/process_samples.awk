@@ -9,6 +9,9 @@
 # Ideally we'd also have SSR in here too, but it was not included with
 # metadata provided in SOFT files.
 
+# Syntax: Takes an input and output folder. 
+# Use command like awk -f process_samples.awk sample_info.txt > cell_line_mapping.txt
+
 # Start by defining the output format - fields will be separated by tabs
 BEGIN {OFS="\t"} 
 

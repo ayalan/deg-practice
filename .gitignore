@@ -32,7 +32,6 @@ variant_stats.txt
 
 # Result directories that might contain large files
 results/*
-output/*
 data/*
 
 # Docker specific
@@ -95,15 +94,6 @@ htmlcov/
 
 # Exception for important configuration files
 !config/*.yaml
-
-# Exception for metadata extraction scripts
-!metadata/*.sh
-!metadata/*.awk
-!metadata/*.py
-
-!data/counts.txt
-!data/counts.txt.summary
-!data/counts_for_asap.txt
 
 # Track workflow script
 !run_snv_analysis.sh

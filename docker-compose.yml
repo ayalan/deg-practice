@@ -6,6 +6,8 @@ services:
       - ./results:/results
       - ./reference:/reference
       - ./metadata:/metadata
+      - ./output:/output
+      - ./scripts:/scripts
       - ./data/sra-cache:/data/sra-cache
     working_dir: /data
     # Uncomment the next line if you want to use the container interactively
