@@ -4,6 +4,7 @@
 
  - I overcomplicated this whole thing and started out with doing a lot of the clustering and analysis in seurat. Changed it to just use ASAP once count matrix and metadata is ready.
  - I want to add a 'Further Investigation' section about what else can be done with the data or other analysis that could be done.
+ - The Dockerfile still includes R. R isn't used anywhere locally as it is now, but I've left it in assuming it might be used in that Further Investigation section.
  - The whole processing and visualization of up/down-regulation needs work.
  - I had significant help from Claude Sonnet 3.7 for the R portions of this document because it's not my forté. I want to properly review and clean it later.
 
@@ -87,7 +88,7 @@ Instead of installing various tools, let's create a reproducible Docker environm
 Check that we have the Dockerfiles, `Dockerfile` and `Dockerfile.eutils`.
 
 Build the primary Docker image:
-```
+```bash
 docker build -t scrnaseq-analysis:1.0 .
 
 # or if using MacOS with mX chips:
@@ -95,7 +96,7 @@ docker build --platform linux/arm64 -t scrnaseq-analysis:1.0 .
 ```
 
 Verify the image was built successfully
-```
+```bash
 docker images | grep scrnaseq-analysis
 ```
 
@@ -241,7 +242,7 @@ gget ref -w dna homo_sapiens -d
 gunzip -c Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz > genome.fa
 
 # Download the GRCh38.p13 gene annotations
-gget ref -w dna homo_sapiens -d
+gget ref -w gtf homo_sapiens -d
 gunzip -c Homo_sapiens.GRCh38.113.gtf.gz > annotation.gtf
 ```
 
@@ -250,29 +251,44 @@ gunzip -c Homo_sapiens.GRCh38.113.gtf.gz > annotation.gtf
 ```bash
 # Index reference genome
 time hisat2-build genome.fa hisat2_index
+# You don't need to use time but I want to benchmark performance.
+# Last run 2025-03-23 (containerized) took 24m36.575s
 
 # Return to project root
 cd ..
 
 # Align each trimmed FASTQ file using HISAT2
 # Adjust thread count -p with number of cores available to you
+time 
 for file in data/*.fastq.gz; do
   base=$(basename "$file" .fastq.gz)
-  hisat2 -p 12 -x reference/hisat2_index -U $file -S data/aligned/${base}.sam
+  hisat2 -p 9 -x reference/hisat2_index -U $file -S data/aligned/${base}.sam
 done
+
 
 # Convert SAM to BAM and sort using samtools
 for file in data/aligned/*.sam; do
   base=$(basename "$file" .sam)
   samtools view -bS $file | samtools sort -o data/aligned/${base}.sorted.bam
 done
-
-# Run featureCount to generate count matrix
-# Adjust thread count -T with number of cores available to you
-featureCounts -T 12 -a reference/annotation.gtf -o output/counts.txt data/aligned/*.sorted.bam
 ```
 
-The result is `counts.txt` and `counts.txt.summary`. To prepare the counts file for ASAP, we'll need to clean some of the file content. You'll notice that the first row is meant to be just a comment, and the second row uses the path name instead of sample name from column 7 and on. We can clean it using the following:
+### Create a count matrix using featureCounts
+
+```bash
+# Adjust thread count -T with number of cores available to you
+featureCounts -T 9 -a reference/annotation.gtf -o output/counts.txt data/aligned/*.sorted.bam
+```
+
+The result is `counts.txt` and `counts.txt.summary`. To prepare the counts file for ASAP, we'll need to clean some of the file content. 
+
+Take a look inside:
+
+```bash
+head -n 3 output/counts.txt
+```
+
+You'll notice that the first row is meant to be just a comment, and the second row uses the path name instead of sample name from column 7 and on. We can clean it using the following:
 
 ```awk
 # Step 1: Skip the first line (metadata/command) and process from the second line
@@ -286,7 +302,7 @@ awk 'BEGIN {OFS="\t"}
          for(i=7; i<=NF; i++) {
              # Clean the sample name - extract just SRR ID
              sample = $i;
-             gsub(".*/", "", sample);        # Remove path
+             gsub(".*/", "", sample);              # Remove path
              gsub("\\.sorted\\.bam", "", sample);  # Remove extension
              printf "\t%s", sample;
          }
