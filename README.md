@@ -6,7 +6,6 @@
  - I want to add a 'Further Investigation' section about what else can be done with the data or other analysis that could be done.
  - The Dockerfile still includes R. R isn't used anywhere locally as it is now, but I've left it in assuming it might be used in that Further Investigation section.
  - The whole processing and visualization of up/down-regulation needs work.
- - I had significant help from Claude Sonnet 3.7 for the R portions of this document because it's not my forté. I want to properly review and clean it later.
 
 ## Introduction
 
@@ -178,7 +177,7 @@ cd scripts
 ./extract_meta.sh
 ```
 
-Create a mapping file between SRA accessions and cell lines, using the process_samples.awk script:
+Create a mapping file between SRA accessions and cell lines, using the `process_samples.awk` script:
 
 ```bash
 awk -f process_samples.awk output/sample_info.txt > output/cell_line_mapping.txt
@@ -192,7 +191,7 @@ This script:
 
 View the mapping file. This mapping file connects each GSM accession to its corresponding cell line and SRX. However, we're still missing the SRR, since the metadata files did not include them. We will need to query and map each SRX to SRR using the NCBI e-utils tool.
 
-We'll do this with a one-time use Docker container. See Dockerfile.eutils in this repo.
+We'll do this with a one-time use Docker container. See `Dockerfile.eutils` in this repo.
 
 ```bash
 docker build -t ncbi-eutils-py -f Dockerfile.eutils .
@@ -202,10 +201,10 @@ docker build -t ncbi-eutils-py -f Dockerfile.eutils .
 docker run -it --rm \
   -v $(pwd)/metadata:/data \
   ncbi-eutils-py \
-  python3 /data/map_srx_srr.py
+  python3 /scripts/map_srx_srr.py
 ```
 
-If you look at the newly made cell_line_metadata.txt, the cell line names contain a read number. We should remove those with this quick awk script:
+If you look at the newly made `cell_line_metadata.txt`, the cell line names contain a read number. We should remove those with this quick awk script:
 
 ```awk
 awk 'BEGIN {OFS="\t"}
@@ -219,7 +218,7 @@ awk 'BEGIN {OFS="\t"}
 
 The result is a clean, tabular metadata file that maps each SRA accession number to its corresponding cell line, which will be used in the analysis to annotate cells. 
 
-To summarize: we started with the SOFT file, `used extract_meta.sh` to generate a `sample_info.txt` file. Then we used `process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used anywhere. We finally cleaned the file again and produced `cell_line_metadata_asap.txt` which we'll later use to import as metadata in ASAP.
+To summarize: we started with the SOFT file, used `extract_meta.sh` to generate a `sample_info.txt` file. Then we used `process_samples.awk` to transform it to `cell_line_mapping.txt`. Then, we pulled the SSR for each SRX in it via NCBI using the `map_srx_srr.py` script to output `cell_line_metadata.txt`. We also generated `srx_to_srr_mapping.txt` which is mostly just for our own reference, and won't be used anywhere. We finally cleaned the file again and produced `cell_line_metadata_asap.txt` which we'll later use to import as metadata in ASAP.
 
 ## 2. Creating a Count Matrix
 
